@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "Bash(sed:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:blog.naver.com)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(npm install:*)",
+      "Bash(mv:*)",
+      "Bash(npm run evaluate:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "Bash(pkill:*)",
+      "Bash(timeout:*)",
+      "Bash(rg:*)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"app\\.post.*extract-blog|extract-blog\" server.js)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"\\.\\.\\.|ellipsis|overflow.*hidden|substring|slice\" chatgpt-client/script.js)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 5 -B 5 \"renderFileList|file.*item|assistant.*content\" chatgpt-client/script.js)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 20 \"function renderFileList\" chatgpt-client/script.js)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 40 \"container.innerHTML = files.map\" chatgpt-client/script.js)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 -B 5 \"assistant-content|content-body|file-content\" chatgpt-client/style.css)",
+      "Bash(/usr/local/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 \"\\.content-body|\\.assistant-content\" chatgpt-client/style.css)",
+      "Bash(chmod:*)",
+      "Bash(gh repo view:*)",
+      "Bash(./fresh_start.sh:*)",
+      "Bash(git config:*)",
+      "Bash(ssh:*)"
+    ],
+    "deny": []
+  }
+}

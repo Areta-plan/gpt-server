@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 부산 발달센터
+[Intent]: 발달센터를 찾는 보호자에게 직접적인 확신을 주려는 목적
+[Tags]: [Targeting], [Reassurance]
+
+===assistant===
+부산 발달센터, 어머님이라면 이 글만 보셔도 충분합니다

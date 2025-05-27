@@ -1,0 +1,23 @@
+# 파일 경로: .github/workflows/example.yml
+name: Hello CI      # 워크플로 이름(아무거나)
+
+on:                 # 언제 실행할지 정의
+  push:             # “git push” 했을 때
+    branches:
+      - master        # master 브랜치로 푸시할 때만
+
+jobs:
+  say-hello:         # Job 이름
+    runs-on: ubuntu-latest   # 어디서 실행할지(가상 환경)
+
+    steps:
+      - name: Checkout 코드 가져오기
+        uses: actions/checkout@v3
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 인사 메시지 출력
+        run: echo "안녕하세요, GitHub Actions 테스트 중입니다!"

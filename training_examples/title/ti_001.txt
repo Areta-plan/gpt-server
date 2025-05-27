@@ -1,0 +1,56 @@
+===user===
+[Keyword]: PCT 국제출원  
+[Intent]: 국제출원 전에 꼭 알아야 할 중요 포인트 찾는 사람  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 카페상표특허  
+[Intent]: 등록 안 해 두면 생길 수 있는 피해를 걱정하는 사람  
+[Tags]: [Threat], [Warning]
+[Keyword]: 의견제출통지서  
+[Intent]: 대응 시점을 놓쳐 피해 본 경험이 있거나 그걸 걱정하는 사람  
+[Tags]: [Threat], [Warning]
+[Keyword]: 상표권존속기간  
+[Intent]: 갱신 시기를 놓칠까 불안해하는 브랜드/사업자  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 전용실시권  
+[Intent]: 통상실시권과 혼동해 계약서가 무효되는 위험을 모르는 경우  
+[Tags]: [Threat], [Warning]
+[Keyword]: 표준특허  
+[Intent]: 등록 거절이 반복되면서 전략을 찾는 사람  
+[Tags]: [Curiosity], [Warning]
+[Keyword]: 특허사용료  
+[Intent]: 계약서에서 수익 배분 관련 조항을 놓치지 않으려는 사람  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 실용신안  
+[Intent]: 등록이 쉬워 보이지만 실제 권리 확보에는 실패한 경험자  
+[Tags]: [Reversal], [Warning]
+[Keyword]: 특허출원조회  
+[Intent]: 키프리스만 보면 충분하다고 착각하는 비전문가들  
+[Tags]: [Reversal], [Curiosity]
+[Keyword]: 분할출원  
+[Intent]: 전략 없이 나눴다가 비용 낭비한 사례를 피하려는 사람  
+[Tags]: [Threat], [Warning]
+[Keyword]: 디자인특허조회  
+[Intent]: 단순 조회로 끝낼 수 있다고 생각하는 사용자  
+[Tags]: [Reversal], [Specificity]
+[Keyword]: 가게상호등록  
+[Intent]: 상호 도용의 실제 사례를 피하려는 창업자  
+[Tags]: [Threat], [Warning]
+[Keyword]: 통상실시권  
+[Intent]: 조건을 제대로 안 넣고 계약했다가 분쟁으로 이어질 수 있는 상황  
+[Tags]: [Threat], [Specificity]
+
+
+===assistant===
+PCT 국제출원, 특허 등록 전 반드시 봐야 할 3가지
+카페상표특허, 등록 안 하면 벌어지는 일
+의견제출통지서, 대응 늦으면 이렇게 됩니다
+상표권존속기간, 갱신 누락시 생기는 상황
+전용실시권, 이거 모르면 계약서 무효되는 이유
+표준특허, 등록 거절 3번이면 꼭 보세요
+특허사용료, 계약서에 꼭 넣어야 되는 조항
+실용신안, 등록은 쉽지만 진짜 권리는 따로다
+특허출원조회, 키프리스만 보면 안되는 이유
+분할출원, 전략 없이 하면 수백만원 날립니다
+디자인특허조회, 단순 조회만으로는 힘든 이유
+가게상호등록, 잘못하면 이름 도용 당합니다
+통상실시권, 이 조건 없으면 소송해도 무력합니다

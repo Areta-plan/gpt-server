@@ -1,0 +1,276 @@
+===user===
+[Keyword]: 수성구 렌트카  
+[Intent]: 직접 매장 방문해서 빌리려는 사람들 대상  
+[Tags]: [Targeting], [Gain]
+[Keyword]: 구미 사고대차  
+[Intent]: 정비소 일정 지연으로 불편을 겪은 사람들  
+[Tags]: [Threat], [Curiosity]
+[Keyword]: 경북 사고대차  
+[Intent]: 대차 차량에 만족/불만족 경험한 소비자  
+[Tags]: [Gain], [Reversal]
+[Keyword]: 동대구역 렌트카  
+[Intent]: 특정 위치에서 렌트하려는 사람에게 주는 주의  
+[Tags]: [Targeting], [Gain]
+[Keyword]: 대구 사고대차  
+[Intent]: 아무데서나 대차 계약했다가 피해 본 사례 경고  
+[Tags]: [Threat], [Reversal]
+[Keyword]: 월배 렌트카  
+[Intent]: 무심코 선택했다가 손해보는 걸 방지  
+[Tags]: [Threat], [Curiosity]
+[Keyword]: 달서구 렌트카  
+[Intent]: 고르는 팁을 주고 실수를 막으려는 목적  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 대구 렌트카  
+[Intent]: 확인 안 하면 실제 피해가 발생하는 정보 전달  
+[Tags]: [Threat], [Warning]
+[Keyword]: 대구공항 렌트카  
+[Intent]: 공항에서 차량 빌리는 사람들에게 꼭 필요한 체크리스트  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 파주 운정신도시아이파크 시스템에어컨  
+[Intent]: 신규 입주자들이 설치 여부를 고민하며 검색  
+[Tags]: [Targeting], [Curiosity]
+[Keyword]: 오산대역 우미린 아파트시스템에어컨  
+[Intent]: 설치해야 할지 말아야 할지 헷갈리는 예비 입주자들  
+[Tags]: [Gain], [Curiosity]
+[Keyword]: 아파트 시스템에어컨  
+[Intent]: 전문가의 선택 기준을 알고 싶은 일반 소비자  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 오목천역 서희스타힐스 아파트시스템에어컨  
+[Intent]: 입주를 앞두고 설치 업체를 정하려는 입주민  
+[Tags]: [Targeting], [Gain]
+[Keyword]: 김포 한강금호어울림 시스템에어컨  
+[Intent]: 남은 방에 추가 설치할지 고민하는 기존 입주자  
+[Tags]: [Curiosity], [Targeting]
+[Keyword]: 남양주 다산유승한내들 아파트시스템에어컨  
+[Intent]: 구조적으로 설치 가능한지 검색 중인 입주 예정자  
+[Tags]: [Curiosity], [Threat]
+[Keyword]: 안성그랑루체 시스템에어컨설치비용  
+[Intent]: 설치비가 부담되어 고민 중인 고객  
+[Tags]: [Gain], [Cost-related]
+[Keyword]: 시흥은계브리즈힐 아파트시스템에어컨  
+[Intent]: 설치 후 누수 문제가 발생한 사례를 찾는 사용자  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 세종시스템에어컨  
+[Intent]: 전체 구조나 유지보수로 고민 중인 실수요자  
+[Tags]: [Targeting], [Gain]
+[Keyword]: 수성못 인테리어  
+[Intent]: 업체 선택에 어려움을 느끼는 지역 고객  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 평리푸르지오 인테리어  
+[Intent]: 대단지 아파트에서 믿고 맡길 인테리어 업체를 찾는 사람들  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 키즈카페 인테리어  
+[Intent]: 견적 없이 계약했다가 손해 본 경험을 피하고 싶은 창업자  
+[Tags]: [Threat], [Warning]
+[Keyword]: 애견유치원 인테리어  
+[Intent]: 업종 특화된 인테리어가 필요해 고민 중인 소상공인  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 스크린골프장 인테리어  
+[Intent]: 상업공간 인테리어가 막막한 예비창업자  
+[Tags]: [Curiosity], [Reassurance]
+[Keyword]: 대실역청아람 리모델링  
+[Intent]: 리모델링 전 정보 수집 중인 실거주자  
+[Tags]: [Targeting], [Advice]
+[Keyword]: 옷 가게 인테리어  
+[Intent]: 감각적인 인테리어가 필요한 소규모 자영업자  
+[Tags]: [Targeting], [Empathy]
+[Keyword]: 평리푸르지오 인테리어  
+[Intent]: 복잡한 옵션 대신 핵심만 알고 싶은 입주자  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 신당한화꿈에그린 리모델링  
+[Intent]: 견적을 받아보기 전에 체크리스트를 알고 싶은 사람  
+[Tags]: [Gain], [Warning]
+[Keyword]: 골프연습장 인테리어  
+[Intent]: 인테리어 전문성을 확보하고 싶은 창업자  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 대실역청아람 인테리어  
+[Intent]: 예산 낭비를 막고 싶은 리모델링 수요자  
+[Tags]: [Gain], [Reassurance]
+[Keyword]: 평리동대우푸르지오 리모델링  
+[Intent]: 입주 전 믿을 수 있는 업체를 찾는 사람들  
+[Tags]: [Gain], [Targeting]
+[Keyword]: 창원 정신과  
+[Intent]: 진료기록이 남을까 불안한 사람들  
+[Tags]: [Threat], [Empathy]
+[Keyword]: 창원 우울증  
+[Intent]: 가족이나 지인이 상담을 말리는 상황  
+[Tags]: [Reversal], [Curiosity]
+[Keyword]: 창원 심리상담센터  
+[Intent]: 멀리서 일부러 찾아오는 곳에 대한 호기심  
+[Tags]: [Curiosity], [Reputation]
+[Keyword]: 진해 심리상담센터  
+[Intent]: 엉뚱한 곳에서 시간·비용 날릴까 걱정하는 사람  
+[Tags]: [Threat], [Warning]
+[Keyword]: 창원 심리상담  
+[Intent]: 비용이 비쌀수록 상담 효과가 클 거라는 고정관념  
+[Tags]: [Reversal], [Curiosity]
+[Keyword]: 창원 트라우마 상담  
+[Intent]: 오랜 고통을 겪는 사람에게 위로와 도움을 주고 싶음  
+[Tags]: [Empathy], [Encouragement]
+[Keyword]: 마산 우울증상담  
+[Intent]: 삶이 너무 버거운 상태에서 무기력하게 검색  
+[Tags]: [Empathy], [Targeting]
+[Keyword]: 창원 산후우울증  
+[Intent]: '잘 이겨내야 한다'는 압박에 지친 산모들  
+[Tags]: [Reversal], [Empathy]
+[Keyword]: 마산 가족상담  
+[Intent]: 부모에 대한 분노나 죄책감을 가진 사람들  
+[Tags]: [Empathy], [Healing]
+[Keyword]: 마산 공황장애  
+[Intent]: 특정 증상 때문에 혹시 공황장애일까 고민하는 사람  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 창원 강박증 치료  
+[Intent]: 아이의 반복 행동이 걱정되는 부모  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 진해 대인기피증 상담  
+[Intent]: 약만으로는 불안한 사람들  
+[Tags]: [Reversal], [Warning]
+[Keyword]: 마산 우울증 치료  
+[Intent]: 우울증을 방치하고 있는 사람  
+[Tags]: [Threat], [Warning]
+[Keyword]: 마산 부부상담  
+[Intent]: 대화가 안 되는 부부 관계로 힘들어하는 사람  
+[Tags]: [Targeting], [Empathy]
+[Keyword]: 진해 공부 스트레스  
+[Intent]: 입시에 지친 자녀와 부모  
+[Tags]: [Threat], [Empathy]
+[Keyword]: 창원 강박증 상담  
+[Intent]: 불쾌한 생각이 계속 떠올라 불안한 사람  
+[Tags]: [Threat], [Curiosity]
+[Keyword]: 창원 우울증 치료  
+[Intent]: 슬픔을 방치하고 있는 사용자  
+[Tags]: [Threat], [Warning]
+[Keyword]: 진해 부부상담  
+[Intent]: 시어머니 갈등으로 관계가 악화된 부부  
+[Tags]: [Specificity], [Empathy]
+[Keyword]: 김해 가족상담  
+[Intent]: 자녀에게 죄책감을 느끼는 부모들  
+[Tags]: [Empathy], [Reversal]
+[Keyword]: 창원 심리상담  
+[Intent]: 부부끼리 무심코 던지는 말이 상처가 되는 경우  
+[Tags]: [Specificity], [Empathy]
+[Keyword]: 마산 가족상담  
+[Intent]: 오래된 부부/가족 관계를 회복하고 싶은 사람  
+[Tags]: [Gain], [Healing]
+[Keyword]: 창원 성인심리상담  
+[Intent]: 부모에게 받은 상처로 힘들어하는 성인  
+[Tags]: [Empathy], [Healing]
+[Keyword]: 진해 심리상담  
+[Intent]: 양육 스트레스로 힘든 엄마들  
+[Tags]: [Targeting], [Empathy]
+[Keyword]: 창원 부부상담  
+[Intent]: 관계 위기를 방치하고 있는 부부  
+[Tags]: [Threat], [Warning]
+[Keyword]: 창원 공황장애  
+[Intent]: 발작이 올 때 대처법을 알고 싶어 하는 사람  
+[Tags]: [Gain], [Specificity]
+[Keyword]: 개금 발달센터  
+[Intent]: 대기 많은 센터에 대한 신뢰 또는 궁금증  
+[Tags]: [Curiosity], [Reputation]
+[Keyword]: 부산 발달센터  
+[Intent]: 발달센터를 찾는 보호자에게 직접적인 확신을 주기 위함  
+[Tags]: [Targeting], [Reassurance]
+[Keyword]: 명지 발달센터  
+[Intent]: 사회성 문제로 또래와 어울리지 못하는 아이 고민  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 명지 언어치료  
+[Intent]: 전문가의 조언을 듣고 싶은 실질적 보호자  
+[Tags]: [Authority], [Reassurance]
+[Keyword]: 부산 발달지연  
+[Intent]: 자폐와 발달지연이 구별이 안 되는 보호자의 불안  
+[Tags]: [Threat], [Specificity]
+[Keyword]: 김해 발달센터  
+[Intent]: 후기와 지인 추천 중 선택 갈등 중인 보호자  
+[Tags]: [Curiosity], [Targeting]
+[Keyword]: 부산 자폐 스펙트럼  
+[Intent]: 눈맞춤 어려움으로 자폐 가능성을 걱정하는 부모  
+[Tags]: [Threat], [Targeting]
+[Keyword]: 부산 감각통합치료  
+[Intent]: 잘못된 선택으로 치료 실패를 피하고 싶은 부모  
+[Tags]: [Gain], [Reversal]
+[Keyword]: 부산 무발화  
+[Intent]: 말이 없던 아이의 눈에 띄는 변화 사례를 공유  
+[Tags]: [Gain], [Empathy]
+[Keyword]: 김해 언어치료  
+[Intent]: 언어표현이 느렸던 아이가 변화한 경험 공유  
+[Tags]: [Gain], [Curiosity]
+[Keyword]: 양산 언어치료  
+[Intent]: 선생님과 아이의 궁합에 대한 현실적인 고민  
+[Tags]: [Targeting], [Curiosity]
+[Keyword]: 부산진구 미술치료  
+[Intent]: 멀리서 일부러 오는 치료센터에 대한 호기심  
+[Tags]: [Curiosity], [Reputation]
+[Keyword]: 사하구 언어치료  
+[Intent]: 비용은 동일한데 효과에 대해 의문이 있는 보호자  
+[Tags]: [Reversal], [Cost-related]
+
+
+
+===assistant===
+수성구 렌트카, 직접 찾으러 가는 분들만 보세요
+구미 사고대차, 정비소 때문에 2주 날려보신적 있나요?
+경북 사고대차, 차 받고나서 기분이 바뀐 이유
+동대구역 렌트카, 빌리시는 분들께 드리는 당부
+대구 사고대차, 아무 곳에서나 하면 이렇게 됩니다
+월배 렌트카, 아무 곳이나 고르면 안되는 이유
+달서구 렌트카, 선택할 때 이것만 기억하세요
+대구 렌트카, 이거 확인 안하고 빌리면 벌어지는 일
+대구공항 렌트카, 빌리기 전에 확인할 것들
+파주 운정신도시아이파크, 시스템에어컨 설치 고민하시는 분들께
+오산대역 우미린, 아파트시스템에어컨 고민하시는 분들께 드리는 팁
+아파트 시스템에어컨, 전문가가 알려주는 좋은 업체 고르는 방법
+오목천역 서희스타힐스, 업계 전문가가 말하는 아파트시스템에어컨 설치 업체 고르는 방법
+김포 한강금호어울림, 남은 방에 시스템에어컨 설치 고민이신 분들께
+남양주 다산유승한내들, 아파트시스템에어컨 설치 가능할까요
+안성그랑루체, 시스템에어컨설치비용 고민이신 분들께
+시흥은계브리즈힐, 아파트시스템에어컨 누수 발생하는 분 보세요
+세종시스템에어컨, 에어컨설치 고민이신 분들만 보세요
+수성못 인테리어, 전문가가 말하는 업체 고르는 방법
+평리푸르지오, 인테리어 업체 잘 고르는 방법
+키즈카페 인테리어, 견적서 안 받으면 벌어지는 일
+애견유치원 인테리어, 업체 고르는 꿀팁 알려드릴게요
+스크린골프장 인테리어, 어떻게 해야할지 막막한 분들께
+대실역청아람 리모델링, 하실 분들께 드리는 말씀
+옷 가게 인테리어, 고민이신분만 보세요
+평리푸르지오 인테리어, '이것'만 기억하시면 됩니다
+신당한화꿈에그린, 리모델링 견적 받기 전 체크할 것들
+골프연습장 인테리어, 업체 고르는 팁 알려드릴게요
+대실역청아람, 인테리어 견적 받기 전 체크할 것
+평리동대우푸르지오, 리모델링 업체 고를때 체크할 것
+창원 정신과, 이력 남는게 걱정되시는 분들께
+창원 우울증, 심리상담을 말리는 이유
+창원 심리상담센터, 서울에서 찾아오는 곳은 뭐가 다를까?
+진해 심리상담센터, 이상한 곳에서 비용 날리기 싫으면 보세요
+창원 심리상담, 비용이 비쌀수록 잘할 거라는 착각
+창원 트라우마 상담, 고통의 시간을 보내는 당신에게
+마산 우울증상담, 삶이 힘들고 지친 분들만 보세요
+창원 산후우울증, 슬픔을 극복하지 않아도 괜찮은 이유
+마산 가족상담, 부모를 용서하지 못하는 당신께
+마산 공황장애, '이것' 있다면 맞을지도 모릅니다
+창원 강박증 치료, 우리아이의 행동을 고치는 방법
+진해 대인기피증 상담, 약만으로 절대 완치 안되는 이유
+마산 우울증 치료, 심해져도 놔둔다면 당신이 겪게 될 결말
+마산 부부상담, 배우자와 말이 안 통하는 분만 보세요
+진해 공부 스트레스, 입시공부가 아이들을 망치는 이유
+창원 강박증 상담, 불쾌한 생각이 계속나면 '이것' 일수도
+창원 우울증 치료, 슬픔을 방치하면 벌어지는 일
+진해 부부상담, 시어머니 스트레스 줄이는 방법
+김해 가족상담, 자식에게 못난 부모들의 공통점
+창원 심리상담, 부부 끼리 상처가 되는 말
+마산 가족상담, 무너진 사랑을 다시 되찾는 방법
+창원 성인심리상담, 부모에게 받은 상처를 씻는 방법
+진해 심리상담, 우울한 엄마들의 공통점
+창원 부부상담, 대화방식 바꾸지 않으면 결국 이혼합니다
+창원 공황장애, 공포가 왔을 때 극복하는 방법
+개금 발달센터, 대기가 많은 곳은 뭐가 다를까
+명지 발달센터, 아이가 또래와 못 어울리는 이유
+명지 언어치료, 14년차 전문가가 드리는 솔직한 말씀
+부산 발달지연, 14년차 전문가가 말하는 자폐와 구별하는 법
+김해 발달센터, 후기와 지인소개 중 뭐가 좋을까?
+부산 자폐 스펙트럼, 아이와 눈맞춤이 안되는 분들 주목해 주세요
+부산 감각통합치료, 실패하지 않는 센터 고르는 법 2가지
+부산 무발화, 사회성 부족한 아이 바뀐 사연
+김해 언어치료, 말 서툴던 아이 수다쟁이가 된 사연
+양산 언어치료, 선생님과 아이가 맞을까? 고민인 분들께
+부산진구 미술치료, 멀리서 찾아오는 곳은 뭐가 다를까?
+사하구 언어치료, 비용은 똑같은데 결과는 별로인 이유

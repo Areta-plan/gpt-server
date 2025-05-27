@@ -1,0 +1,45 @@
+name: Auto Codex Sync
+
+permissions:
+  contents: write        # 커밋·푸시 허용
+  pull-requests: write   # PR 생성 허용
+
+on:
+  workflow_dispatch:     # 수동 실행 트리거
+
+jobs:
+  generate-and-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 코드 내려받기
+      - uses: actions/checkout@v3
+
+      # 2. Codex API 호출
+      - name: Codex로 코드 생성
+        run: |
+          curl https://api.openai.com/v1/completions \
+            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "model": "code-davinci-002",
+                  "prompt": "여기에 작업 지시문을 한두 문장으로 써주세요",
+                  "max_tokens": 500
+                }' > generated.txt
+
+      # 3. 폴더 만들고 파일 이동 (없어도 실패 안 함)
+      - name: src 폴더 준비 & 파일 이동
+        run: |
+          mkdir -p src
+          mv generated.txt src/new_code.js || true
+
+      # 4. 자동 Pull Request 생성
+      - name: 자동으로 Pull Request 만들기
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: codex-update-${{ github.run_number }}
+          commit-message: "Codex 업데이트: 코드 생성/수정"
+          title: "🤖 Codex 자동 업데이트 PR"
+          body: |
+            이 PR은 Codex가 자동으로 생성·수정한 코드를 담고 있습니다.

@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 대구 인테리어
+[Intent]: 인테리어 업체 선택에 어려움을 겪고 있는 고객
+[Tags]: [Gain], [Targeting]
+
+===assistant===
+대구 인테리어, 업체 고를 때 이것만 확인하세요

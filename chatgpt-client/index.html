@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT 브랜드블로그 초안기</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 GPT 브랜드블로그 초안기</h1>
+        
+        <!-- 탭 네비게이션 -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('chat')">💬 일반 채팅</button>
+            <button class="tab-button" onclick="showTab('blog')">📝 블로그 생성</button>
+            <button class="tab-button" onclick="showTab('classification')">🏷️ 자동 분류</button>
+        </div>
+
+        <!-- 일반 채팅 탭 -->
+        <div id="chat" class="tab-content active">
+            <div class="form-group">
+                <label for="chatMessage">💭 메시지:</label>
+                <textarea id="chatMessage" rows="4" placeholder="질문을 입력하세요..."></textarea>
+                <button onclick="sendChat()" class="btn-primary">전송</button>
+            </div>
+            <div class="result-container">
+                <div id="chatResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- 블로그 생성 탭 -->
+        <div id="blog" class="tab-content">
+            <div class="form-group">
+                <label for="blogTopic">📖 주제:</label>
+                <input type="text" id="blogTopic" placeholder="예: 특허 출원 시 주의사항">
+            </div>
+            <div class="form-group">
+                <label for="blogTarget">🎯 타겟 고객:</label>
+                <input type="text" id="blogTarget" placeholder="예: 처음 특허 출원하는 창업자">
+            </div>
+            <div class="form-group">
+                <label for="blogTone">🎨 톤앤매너:</label>
+                <select id="blogTone">
+                    <option value="professional">전문적인</option>
+                    <option value="friendly">친근한</option>
+                    <option value="casual">캐주얼한</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="blogBrand">🏢 브랜드명/강점:</label>
+                <input type="text" id="blogBrand" placeholder="예: 우림특허법률사무소 - 25,000건 성공">
+            </div>
+            <div class="form-group">
+                <label for="blogStyle">📝 스타일:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="blogStyle" value="knowledge" checked> 정보성</label>
+                    <label><input type="radio" name="blogStyle" value="story"> 스토리형</label>
+                </div>
+            </div>
+            
+            <!-- 참고 파일 업로드 추가 -->
+            <div class="form-group">
+                <label for="blogFiles">📎 참고 파일 (최대 5개, RAG):</label>
+                <div class="file-upload-container" id="fileDropZone">
+                    <input type="file" id="blogFiles" multiple accept=".txt,.md,.pdf,.doc,.docx" class="file-upload-input" onchange="handleFileSelect(event)">
+                    <label for="blogFiles" class="file-upload-label">
+                        📁 파일을 선택하거나 여기에 드래그하세요
+                        <br><small>지원 형식: .txt, .md, .pdf, .doc, .docx (최대 10MB)</small>
+                    </label>
+                </div>
+                <div class="file-list" id="fileList" style="display: none;"></div>
+            </div>
+            
+            <button onclick="generateBlog()" class="btn-primary">블로그 생성</button>
+            <div class="result-container">
+                <div id="blogResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- 자동 분류 탭 -->
+        <div id="classification" class="tab-content">
+            <!-- 분류 평가 인터페이스 -->
+            <div class="evaluation-interface">
+                <div class="evaluation-container">
+                    <!-- 왼쪽: 미평가 파일 목록 -->
+                    <div class="file-list-panel">
+                        <!-- 블로그 추출 섹션 -->
+                        <div class="blog-extract-section">
+                            <h4>🔗 블로그 추출</h4>
+                            <div class="extract-form">
+                                <input type="url" id="blogUrlInput" placeholder="블로그 URL을 입력하세요..." class="url-input">
+                                <button onclick="extractBlog()" id="extractBtn" class="btn-extract">추출</button>
+                            </div>
+                            <div id="extractStatus" class="extract-status"></div>
+                        </div>
+                        
+                        <h3>📋 평가 대기 파일</h3>
+                        <div class="file-categories">
+                            <div class="category-group" data-category="title">
+                                <h4>📝 제목 (Title)</h4>
+                                <div class="file-items" id="titleFiles"></div>
+                            </div>
+                            <div class="category-group" data-category="firstparagraph">
+                                <h4>📖 첫 문단 (First Paragraph)</h4>
+                                <div class="file-items" id="firstparagraphFiles"></div>
+                            </div>
+                            <div class="category-group" data-category="closing">
+                                <h4>🔚 마무리 (Closing)</h4>
+                                <div class="file-items" id="closingFiles"></div>
+                            </div>
+                            <div class="category-group" data-category="story">
+                                <h4>📚 스토리 (Story)</h4>
+                                <div class="file-items" id="storyFiles"></div>
+                            </div>
+                            <div class="category-group" data-category="usp">
+                                <h4>💪 USP</h4>
+                                <div class="file-items" id="uspFiles"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 오른쪽: 파일 내용 및 평가 -->
+                    <div class="evaluation-panel">
+                        <div id="fileContentViewer" class="file-content-viewer">
+                            <div class="content-placeholder">
+                                <div class="placeholder-icon">📁</div>
+                                <p>왼쪽에서 평가할 파일을 선택하세요</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 평가 섹션 -->
+                        <div id="evaluationSection" class="evaluation-section" style="display: none;">
+                            <!-- 분류 평가 -->
+                            <div id="classificationEvaluation" class="evaluation-step">
+                                <h4>🎯 분류가 잘 됐는가?</h4>
+                                <div class="star-rating" id="classificationStarRating">
+                                    <button class="star-btn" onclick="setClassificationScore(1)" data-score="1" 
+                                            onmouseover="previewStars('classification', 1)" onmouseout="resetStarPreview('classification')">⭐</button>
+                                    <button class="star-btn" onclick="setClassificationScore(2)" data-score="2"
+                                            onmouseover="previewStars('classification', 2)" onmouseout="resetStarPreview('classification')">⭐</button>
+                                    <button class="star-btn" onclick="setClassificationScore(3)" data-score="3"
+                                            onmouseover="previewStars('classification', 3)" onmouseout="resetStarPreview('classification')">⭐</button>
+                                    <button class="star-btn" onclick="setClassificationScore(4)" data-score="4"
+                                            onmouseover="previewStars('classification', 4)" onmouseout="resetStarPreview('classification')">⭐</button>
+                                    <button class="star-btn" onclick="setClassificationScore(5)" data-score="5"
+                                            onmouseover="previewStars('classification', 5)" onmouseout="resetStarPreview('classification')">⭐</button>
+                                </div>
+                                <div class="score-labels">
+                                    <span onmouseover="previewStars('classification', 1)" onmouseout="resetStarPreview('classification')">매우 나쁨</span>
+                                    <span onmouseover="previewStars('classification', 2)" onmouseout="resetStarPreview('classification')">나쁨</span>
+                                    <span onmouseover="previewStars('classification', 3)" onmouseout="resetStarPreview('classification')">보통</span>
+                                    <span onmouseover="previewStars('classification', 4)" onmouseout="resetStarPreview('classification')">좋음</span>
+                                    <span onmouseover="previewStars('classification', 5)" onmouseout="resetStarPreview('classification')">매우 좋음</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 태깅 평가 -->
+                            <div id="taggingEvaluation" class="evaluation-step" style="display: none;">
+                                <h4>🏷️ 태깅이 잘 됐는가?</h4>
+                                <div class="star-rating" id="taggingStarRating">
+                                    <button class="star-btn" onclick="setTaggingScore(1)" data-score="1"
+                                            onmouseover="previewStars('tagging', 1)" onmouseout="resetStarPreview('tagging')">⭐</button>
+                                    <button class="star-btn" onclick="setTaggingScore(2)" data-score="2"
+                                            onmouseover="previewStars('tagging', 2)" onmouseout="resetStarPreview('tagging')">⭐</button>
+                                    <button class="star-btn" onclick="setTaggingScore(3)" data-score="3"
+                                            onmouseover="previewStars('tagging', 3)" onmouseout="resetStarPreview('tagging')">⭐</button>
+                                    <button class="star-btn" onclick="setTaggingScore(4)" data-score="4"
+                                            onmouseover="previewStars('tagging', 4)" onmouseout="resetStarPreview('tagging')">⭐</button>
+                                    <button class="star-btn" onclick="setTaggingScore(5)" data-score="5"
+                                            onmouseover="previewStars('tagging', 5)" onmouseout="resetStarPreview('tagging')">⭐</button>
+                                </div>
+                                <div class="score-labels">
+                                    <span onmouseover="previewStars('tagging', 1)" onmouseout="resetStarPreview('tagging')">매우 나쁨</span>
+                                    <span onmouseover="previewStars('tagging', 2)" onmouseout="resetStarPreview('tagging')">나쁨</span>
+                                    <span onmouseover="previewStars('tagging', 3)" onmouseout="resetStarPreview('tagging')">보통</span>
+                                    <span onmouseover="previewStars('tagging', 4)" onmouseout="resetStarPreview('tagging')">좋음</span>
+                                    <span onmouseover="previewStars('tagging', 5)" onmouseout="resetStarPreview('tagging')">매우 좋음</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 개선 제안 (선택사항) -->
+                            <div id="improvementSuggestion" class="evaluation-step" style="display: none;">
+                                <h4>💡 모범 답안 제안 (선택사항)</h4>
+                                <textarea id="improvementText" rows="4" placeholder="더 나은 태깅 방법을 제안해주세요..."></textarea>
+                                <div class="improvement-actions">
+                                    <button onclick="skipImprovementAndComplete()" class="btn-secondary">건너뛰기</button>
+                                    <button onclick="submitImprovementAndComplete()" class="btn-primary">제안하기</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 파일 삭제 섹션 -->
+                            <div id="deletionSection" class="deletion-section" style="display: none;">
+                                <h4>🗑️ 파일 삭제</h4>
+                                <p class="delete-warning">분류가 완전히 잘못된 경우에만 삭제하세요.</p>
+                                <button onclick="confirmDeleteFile()" class="btn-delete">파일 삭제하기</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 하단 상태 및 완료 -->
+                <div class="evaluation-footer">
+                    <div class="evaluation-stats">
+                        <span id="evaluationProgress">평가 진행: 0/0</span>
+                        <span id="completedCount">완료: 0개</span>
+                        <button onclick="resetAllEvaluations()" class="btn-reset" id="resetBtn" title="모든 평가 데이터를 초기화합니다">
+                            🗑️ 평가 초기화
+                        </button>
+                    </div>
+                    <button onclick="submitAllEvaluations()" class="btn-submit-all" id="submitAllBtn" disabled>
+                        🚀 모든 평가 완료 후 RLHF 제출
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

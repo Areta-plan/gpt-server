@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 시스템에어컨
+[Intent]: 설치비용이 부담되는 고객들을 대상으로 한 혜택 강조
+[Tags]: [Gain], [Cost-related]
+
+===assistant===
+시스템에어컨, 설치비 부담 줄이는 방법

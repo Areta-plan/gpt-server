@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 상표등록
+[Intent]: 상표등록을 미루고 있다가 피해를 볼 수 있다는 경고
+[Tags]: [Threat], [Warning]
+
+===assistant===
+상표등록, 미루면 이런 일이 벌어집니다

@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 부산 심리상담
+[Intent]: 심리상담을 받고 싶지만 비용이나 효과에 대해 의문을 가진 사람
+[Tags]: [Reversal], [Cost-related]
+
+===assistant===
+부산 심리상담, 비용 비쌀수록 효과 좋다는 착각

@@ -1,0 +1,846 @@
+// server.js
+require('dotenv').config();
+
+// 환경변수 유효성 검증
+if (!process.env.OPENAI_API_KEY) {
+  console.error('❌ OPENAI_API_KEY가 설정되지 않았습니다.');
+  process.exit(1);
+}
+
+const express = require('express');
+const cors    = require('cors');
+const path    = require('path');
+
+const { initializeVectorStore, chunks } = require('./vectorStore');
+const askRouter  = require('./routes/ask');
+const blogRouter = require('./routes/blog');
+const chatRouter = require('./routes/chat');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 1) 공통 미들웨어
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
+  process.env.ALLOWED_ORIGINS.split(',') : 
+  ['http://localhost:3000', 'http://localhost:3001'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+
+const { globalErrorHandler } = require('./middleware/errorHandler');
+
+// 2) 정적 파일 서빙 (chatgpt-client 폴더)
+const clientDir = path.join(__dirname, 'chatgpt-client');
+console.log(`🔧 Serve static files from: ${clientDir}`);
+app.use(express.static(clientDir));
+
+// (선택) 루트 경로에서 index.html 제공
+app.get('/', (req, res) => {
+  res.sendFile(path.join(clientDir, 'index.html'));
+});
+
+// 4) API 라우터 연결
+app.use('/ask', askRouter);
+app.use('/blog', blogRouter);
+app.use('/chat', chatRouter);
+app.use('/classification', require('./routes/classification'));
+
+// RLHF 피드백 엔드포인트
+const rlhfManager = require('./lib/rlhfManager');
+
+app.post('/rlhf-feedback', async (req, res) => {
+  try {
+    const feedbackData = req.body;
+    
+    console.log('📊 RLHF Feedback received:', feedbackData);
+    
+    // 개별 평가 vs 일괄 평가 구분
+    let processedFeedback;
+    if (feedbackData.type === 'individual_evaluation') {
+      // 새로운 개별 평가 형태
+      processedFeedback = {
+        type: 'individual_evaluation',
+        filename: feedbackData.filename,
+        category: feedbackData.category,
+        classificationScore: feedbackData.classificationScore,
+        taggingScore: feedbackData.taggingScore,
+        improvement: feedbackData.improvement,
+        timestamp: feedbackData.timestamp
+      };
+    } else {
+      // 기존 일괄 평가 형태
+      processedFeedback = {
+        timestamp: feedbackData.timestamp,
+        overallScore: feedbackData.overallScore,
+        classificationScores: feedbackData.classificationScores,
+        taggingScores: feedbackData.taggingScores
+      };
+    }
+    
+    // RLHF 매니저를 통한 피드백 처리 및 성능 개선
+    const result = await rlhfManager.processNewFeedback(processedFeedback);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ RLHF 피드백 처리 오류:', error);
+    res.status(500).json({ 
+      error: 'RLHF 피드백 처리 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+// RLHF 성능 통계 조회 엔드포인트
+app.get('/rlhf-stats', (req, res) => {
+  try {
+    const stats = rlhfManager.getPerformanceStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ RLHF 통계 조회 오류:', error);
+    res.status(500).json({ 
+      error: 'RLHF 통계 조회 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+// 블로그 추출 및 분류 엔드포인트
+app.post('/extract-blog', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL이 필요합니다.'
+      });
+    }
+    
+    console.log('🔗 블로그 추출 요청:', url);
+    
+    // 블로그 추출 및 분류 실행
+    const result = await extractAndClassifyBlog(url);
+    
+    res.json({
+      success: true,
+      message: '블로그 추출 및 분류 완료',
+      newFiles: result.newFiles || 0,
+      categories: result.categories || []
+    });
+    
+  } catch (error) {
+    console.error('❌ 블로그 추출 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '블로그 추출 중 오류가 발생했습니다.'
+    });
+  }
+});
+
+// 블로그 추출 및 분류 함수
+async function extractAndClassifyBlog(url) {
+  const AutoClassificationManager = require('./lib/autoClassificationManager');
+  const fs = require('fs');
+  const path = require('path');
+  
+  console.log('📥 블로그 내용 추출 시작...');
+  
+  let blogContent = '';
+  
+  // 네이버 블로그는 JavaScript 렌더링이 필요할 수 있으므로 puppeteer 시도
+  if (url.includes('blog.naver.com')) {
+    try {
+      console.log('🤖 Puppeteer를 사용한 동적 렌더링 시도...');
+      
+      // puppeteer가 설치되어 있는지 확인
+      let puppeteer;
+      try {
+        puppeteer = require('puppeteer');
+      } catch (err) {
+        console.log('⚠️ Puppeteer가 설치되어 있지 않습니다. 기본 fetch 사용...');
+        throw new Error('Puppeteer not available');
+      }
+      
+      const browser = await puppeteer.launch({ 
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      
+      // 페이지 로드 및 대기
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 10000 });
+      
+      // 블로그 콘텐츠가 로드될 때까지 잠시 대기
+      await page.waitForTimeout(2000);
+      
+      // 실제 텍스트 추출
+      const extractedText = await page.evaluate(() => {
+        // 네이버 블로그 특정 셀렉터로 텍스트 추출
+        const selectors = [
+          '.se-main-container',
+          '.postViewArea',
+          '.post_ct',
+          '.se-text',
+          'article',
+          'main'
+        ];
+        
+        let content = '';
+        
+        for (const selector of selectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            elements.forEach(el => {
+              const text = el.innerText || el.textContent;
+              if (text && text.trim().length > 50) {
+                content += text.trim() + ' ';
+              }
+            });
+            if (content.length > 100) break;
+          }
+        }
+        
+        // 제목도 추출
+        const title = document.querySelector('title')?.textContent || '';
+        
+        return {
+          title: title.trim(),
+          content: content.trim()
+        };
+      });
+      
+      await browser.close();
+      
+      if (extractedText.content && extractedText.content.length > 50) {
+        let cleanTitle = extractedText.title;
+        if (cleanTitle.includes(' : ')) {
+          cleanTitle = cleanTitle.split(' : ')[0].trim();
+        }
+        
+        blogContent = (cleanTitle ? cleanTitle + '\n\n' : '') + extractedText.content;
+        console.log(`✅ Puppeteer 추출 성공 (제목: ${cleanTitle.length}자, 본문: ${extractedText.content.length}자)`);
+      } else {
+        throw new Error('Puppeteer로도 충분한 텍스트를 추출할 수 없음');
+      }
+      
+    } catch (puppeteerError) {
+      console.log(`⚠️ Puppeteer 실패: ${puppeteerError.message}, fetch 방식으로 대체`);
+      
+      // 기본 fetch 방식으로 대체
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const html = await response.text();
+      
+      // 기존 HTML 파싱 로직 실행
+      blogContent = await processHtmlContent(html, url);
+    }
+  } else {
+    // 일반 웹사이트는 기본 fetch 사용
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const html = await response.text();
+    blogContent = await processHtmlContent(html, url);
+  }
+  
+  // HTML 처리 함수
+  async function processHtmlContent(html, url) {
+    // 스마트 텍스트 추출 (도메인별 최적화)
+    let text = '';
+    
+    if (url.includes('blog.naver.com')) {
+      console.log('🔧 네이버 블로그 감지 - 고급 추출 모드');
+      
+      // 네이버 블로그 다중 접근 방식
+      const approaches = [];
+      
+      // 1. URL 파라미터 파싱
+      const blogIdMatch = url.match(/blogId=([^&]+)/);
+      const logNoMatch = url.match(/logNo=(\d+)/);
+      
+      if (blogIdMatch && logNoMatch) {
+        // 직접 API 형태로 접근
+        approaches.push(`https://blog.naver.com/PostView.naver?blogId=${blogIdMatch[1]}&logNo=${logNoMatch[1]}&redirect=Dlog&widgetTypeCall=true`);
+        approaches.push(`https://blog.naver.com/${blogIdMatch[1]}/${logNoMatch[1]}`);
+        // 원본 URL도 시도
+        approaches.push(url);
+      }
+      
+      // 2. 모바일 버전 시도
+      approaches.push(url.replace('blog.naver.com', 'm.blog.naver.com'));
+      
+      console.log(`🔧 시도할 URL 목록:`, approaches);
+      
+      for (const approachUrl of approaches) {
+        try {
+          console.log(`🔄 시도: ${approachUrl}`);
+          const naverResponse = await fetch(approachUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+              'Accept': '*/*',
+              'Accept-Language': 'ko-KR,ko;q=0.9'
+            }
+          });
+          
+          if (naverResponse.ok) {
+            const naverHtml = await naverResponse.text();
+            
+            // 네이버 블로그 제목+본문 추출
+            let title = '';
+            let content = '';
+            
+            // 1. 제목 추출 (더 광범위한 패턴)
+            const titlePatterns = [
+              /<title[^>]*>([^<]+)<\/title>/i,
+              /<h1[^>]*>([^<]+)<\/h1>/i,
+              /<h2[^>]*>([^<]+)<\/h2>/i,
+              /<div[^>]*title[^>]*>([^<]+)<\/div>/i,
+              /<span[^>]*title[^>]*>([^<]+)<\/span>/i,
+              /"title":"([^"]+)"/i
+            ];
+            
+            for (const pattern of titlePatterns) {
+              const match = naverHtml.match(pattern);
+              if (match && match[1].trim()) {
+                title = match[1].trim();
+                console.log(`📝 제목 추출: "${title}"`);
+                break;
+              }
+            }
+            
+            // 2. 본문 콘텐츠만 추출 (더 포괄적인 패턴)
+            const contentPatterns = [
+              // 스마트에디터 본문 (가장 일반적)
+              /<div[^>]*se-main-container[^>]*>([\s\S]*?)<\/div>/i,
+              /<div[^>]*se-component[^>]*>([\s\S]*?)<\/div>/gi, // 여러 컴포넌트
+              /<div[^>]*post-content[^>]*>([\s\S]*?)<\/div>/i,
+              /<div[^>]*post_content[^>]*>([\s\S]*?)<\/div>/i,
+              // 일반 블로그 본문
+              /<div[^>]*postViewArea[^>]*>([\s\S]*?)<\/div>/i,
+              /<div[^>]*post_ct[^>]*>([\s\S]*?)<\/div>/i,
+              // 모바일 버전
+              /<div[^>]*_postViewArea[^>]*>([\s\S]*?)<\/div>/i,
+              // 전체 body (최후 수단)
+              /<body[^>]*>([\s\S]*?)<\/body>/i
+            ];
+            
+            for (const pattern of contentPatterns) {
+              const match = naverHtml.match(pattern);
+              if (match && match[1].trim()) {
+                content = match[1];
+                console.log(`📄 본문 패턴 매칭 성공 (${content.length}자)`);
+                break;
+              }
+            }
+            
+            // 3. 본문 처리 및 텍스트 추출
+            if (content) {
+              console.log(`📄 원본 본문 길이: ${content.length}자`);
+              console.log(`📄 본문 샘플: "${content.substring(0, 500)}..."`);
+              
+              // 네이버 스마트에디터 특수 처리: 실제 텍스트는 특정 속성이나 JSON에 있을 수 있음
+              let actualText = '';
+              
+              // 1. data 속성에서 텍스트 찾기
+              const dataMatches = content.match(/data-text="([^"]+)"/gi);
+              if (dataMatches) {
+                dataMatches.forEach(match => {
+                  const text = match.replace(/data-text="([^"]+)"/i, '$1');
+                  actualText += text + ' ';
+                });
+                console.log(`📄 data 속성에서 추출: "${actualText}"`);
+              }
+              
+              // 2. JSON 구조에서 텍스트 찾기
+              const jsonMatches = content.match(/"text":\s*"([^"]+)"/gi);
+              if (jsonMatches) {
+                jsonMatches.forEach(match => {
+                  const text = match.replace(/"text":\s*"([^"]+)"/i, '$1');
+                  if (text.length > 10) {
+                    actualText += text + ' ';
+                  }
+                });
+                console.log(`📄 JSON에서 추출: "${actualText}"`);
+              }
+              
+              // 3. 모든 텍스트 노드를 강제로 추출 (더 관대한 방식)
+              const allTextNodes = content.match(/>([^<]+)</g);
+              if (allTextNodes) {
+                const meaningfulTexts = [];
+                console.log(`🔍 발견된 모든 텍스트 노드 (${allTextNodes.length}개):`);
+                
+                allTextNodes.forEach((match, index) => {
+                  let text = match.replace(/[><]/g, '').trim();
+                  
+                  // 디버깅: 모든 텍스트 출력
+                  if (index < 10) { // 처음 10개만
+                    console.log(`  [${index}] "${text}"`);
+                  }
+                  
+                  // 더 관대한 조건으로 수정
+                  if (text.length >= 3 && 
+                      (/[가-힣]/.test(text) || /[a-zA-Z]/.test(text)) && 
+                      !text.includes('width') && 
+                      !text.includes('%') &&
+                      !text.includes('se-') &&
+                      !text.includes('style') &&
+                      !text.includes('margin') &&
+                      !text.includes('padding') &&
+                      !text.match(/^\s*$/)) {
+                    meaningfulTexts.push(text);
+                  }
+                });
+                
+                console.log(`📄 의미있는 텍스트 (${meaningfulTexts.length}개): "${meaningfulTexts.join(' | ')}"`);
+                
+                if (meaningfulTexts.length > 0) {
+                  actualText += meaningfulTexts.join(' ');
+                }
+              }
+              
+              // 4. 더 구체적인 네이버 스마트에디터 패턴
+              const seContentMatches = content.match(/<div[^>]*se-text[^>]*>[\s\S]*?<\/div>/gi);
+              if (seContentMatches) {
+                seContentMatches.forEach(match => {
+                  const innerText = match.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+                  if (innerText.length > 5) {
+                    actualText += innerText + ' ';
+                  }
+                });
+                console.log(`📄 se-text 컴포넌트에서 추출: "${actualText}"`);
+              }
+              
+              // 실제 텍스트가 발견되면 사용
+              if (actualText.trim().length > 20) {
+                let cleanTitle = title;
+                if (cleanTitle.includes(' : ')) {
+                  cleanTitle = cleanTitle.split(' : ')[0].trim();
+                }
+                
+                text = (cleanTitle ? cleanTitle + '\n\n' : '') + actualText.trim();
+                console.log(`✅ 특수 추출 성공 (제목: ${cleanTitle.length}자, 본문: ${actualText.trim().length}자)`);
+              } else {
+                // 기존 방식으로 진행
+                console.log(`⚠️ 특수 추출 실패, 기존 방식 사용`);
+                
+                // 단계적 정리
+                let cleanedContent = content;
+                
+                // 1단계: 스크립트, 스타일 제거
+                cleanedContent = cleanedContent
+                  .replace(/<script[\s\S]*?<\/script>/gi, '')
+                  .replace(/<style[\s\S]*?<\/style>/gi, '');
+                
+                console.log(`📄 스크립트/스타일 제거 후: ${cleanedContent.length}자`);
+              
+                // 2단계: 불필요한 구조 요소 제거
+                cleanedContent = cleanedContent
+                  .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+                  .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+                  .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+                  .replace(/<div[^>]*comment[^>]*>[\s\S]*?<\/div>/gi, '')
+                  .replace(/<div[^>]*advertisement[^>]*>[\s\S]*?<\/div>/gi, '')
+                  .replace(/<div[^>]*sidebar[^>]*>[\s\S]*?<\/div>/gi, '')
+                  .replace(/<div[^>]*menu[^>]*>[\s\S]*?<\/div>/gi, '');
+                
+                console.log(`📄 구조 요소 제거 후: ${cleanedContent.length}자`);
+                
+                // 3단계: 스마트에디터 특수 처리 후 텍스트 추출
+                let finalText = '';
+                
+                // 스마트에디터 컴포넌트별 텍스트 추출
+                
+                // 1. se-text 컴포넌트
+                const seTextMatches = cleanedContent.match(/<div[^>]*se-text[^>]*>(.*?)<\/div>/gi);
+                if (seTextMatches) {
+                  seTextMatches.forEach(match => {
+                    const text = match.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+                    if (text.length > 5) {
+                      finalText += text + ' ';
+                    }
+                  });
+                  console.log(`📄 se-text 추출: ${finalText.length}자`);
+                }
+                
+                // 2. 테이블 셀에서 텍스트 추출
+                const tableCells = cleanedContent.match(/<td[^>]*>(.*?)<\/td>/gi);
+                if (tableCells) {
+                  tableCells.forEach(cell => {
+                    const text = cell.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+                    if (text.length > 10 && !text.includes('width') && !text.includes('height')) {
+                      finalText += text + ' ';
+                    }
+                  });
+                  console.log(`📄 테이블 셀 추출: ${finalText.length}자`);
+                }
+                
+                // 3. 직접 텍스트 노드 추출 (정규식으로)
+                const directTextMatches = cleanedContent.match(/>([^<>{]+)</gi);
+                if (directTextMatches) {
+                  directTextMatches.forEach(match => {
+                    const text = match.replace(/[><]/g, '').trim();
+                    if (text.length > 15 && 
+                        !text.includes('width') && 
+                        !text.includes('height') && 
+                        !text.includes('margin') &&
+                        !text.includes('padding') &&
+                        !text.includes('se-') &&
+                        !text.match(/^\d+%$/) &&
+                        !text.match(/^[\s\n]*$/)) {
+                      finalText += text + ' ';
+                    }
+                  });
+                  console.log(`📄 직접 텍스트 노드 추출: ${finalText.length}자`);
+                }
+                
+                // 일반 p 태그에서 텍스트 추출
+                const pMatches = cleanedContent.match(/<p[^>]*>(.*?)<\/p>/gi);
+                if (pMatches) {
+                  pMatches.forEach(match => {
+                    const text = match.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+                    if (text.length > 10) {
+                      finalText += text + ' ';
+                    }
+                  });
+                  console.log(`📄 p 태그 텍스트 추가: ${finalText.length}자`);
+                }
+                
+                // span 태그에서 텍스트 추출 (길이 제한)
+                const spanMatches = cleanedContent.match(/<span[^>]*>([^<]+)<\/span>/gi);
+                if (spanMatches) {
+                  spanMatches.forEach(match => {
+                    const text = match.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+                    if (text.length > 15 && !text.includes('클릭') && !text.includes('문의')) {
+                      finalText += text + ' ';
+                    }
+                  });
+                  console.log(`📄 span 태그 텍스트 추가: ${finalText.length}자`);
+                }
+                
+                // 마지막 수단: 모든 HTML 제거
+                if (finalText.length < 100) {
+                  finalText = cleanedContent
+                    .replace(/<[^>]*>/g, ' ')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&[a-z]+;/gi, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  console.log(`📄 전체 HTML 제거 방식: ${finalText.length}자`);
+                }
+                
+                // 최종 정리
+                finalText = finalText
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                
+                console.log(`📄 최종 텍스트: ${finalText.length}자`);
+                
+                if (finalText.length > 50) {
+                  // 제목 정리 (네이버 블로그 제목에서 사이트명 제거)
+                  let cleanTitle = title;
+                  if (cleanTitle.includes(' : ')) {
+                    cleanTitle = cleanTitle.split(' : ')[0].trim();
+                  }
+                  if (cleanTitle.includes(' - ')) {
+                    cleanTitle = cleanTitle.split(' - ')[0].trim();
+                  }
+                  
+                  text = (cleanTitle ? cleanTitle + '\n\n' : '') + finalText;
+                  console.log(`✅ 네이버 제목+본문 추출 성공 (제목: ${cleanTitle.length}자, 본문: ${finalText.length}자)`);
+                } else {
+                  console.log(`⚠️ 추출된 텍스트가 너무 짧음: "${finalText}"`);
+                }
+              }
+            
+            if (!text) {
+              // 기존 패턴 매칭 시도
+              const patterns = [
+                // 스마트에디터 패턴
+                /<div[^>]*se-main-container[^>]*>([\s\S]*?)<\/div>/i,
+                /<div[^>]*se-component[^>]*>([\s\S]*?)<\/div>/i,
+                // 일반 블로그 패턴  
+                /<div[^>]*postViewArea[^>]*>([\s\S]*?)<\/div>/i,
+                /<div[^>]*post_ct[^>]*>([\s\S]*?)<\/div>/i,
+                /<div[^>]*blog_content[^>]*>([\s\S]*?)<\/div>/i,
+                // 모바일 패턴
+                /<div[^>]*post-content[^>]*>([\s\S]*?)<\/div>/i,
+                /<div[^>]*_postViewArea[^>]*>([\s\S]*?)<\/div>/i
+              ];
+            
+              for (const pattern of patterns) {
+                const match = naverHtml.match(pattern);
+                if (match && match[1].trim().length > 100) {
+                  text = match[1];
+                  console.log(`✅ 네이버 패턴 추출 성공 (${text.length}자)`);
+                  console.log(`🔍 추출된 원본 텍스트 샘플: "${text.substring(0, 200)}..."`);
+                  break;
+                }
+              }
+            }
+            
+            if (text) break; // 성공하면 중단
+          }
+        } catch (error) {
+          console.log(`⚠️ ${approachUrl} 실패:`, error.message);
+        }
+      }
+    }
+    
+    // 일반 웹사이트 또는 네이버 실패 시
+    if (!text) {
+      console.log('🔄 일반 웹사이트 제목+본문 추출 모드');
+      
+      // 제목 추출
+      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      let title = titleMatch ? titleMatch[1].trim() : '';
+      
+      // 사이트명 제거 (예: "제목 - 사이트명" → "제목")
+      if (title.includes(' - ')) {
+        title = title.split(' - ')[0].trim();
+      }
+      if (title.includes(' | ')) {
+        title = title.split(' | ')[0].trim();
+      }
+      
+      // 본문 콘텐츠 추출 (article, main 우선)
+      let content = '';
+      const contentPatterns = [
+        /<article[^>]*>([\s\S]*?)<\/article>/i,
+        /<main[^>]*>([\s\S]*?)<\/main>/i,
+        /<div[^>]*content[^>]*>([\s\S]*?)<\/div>/i,
+        /<div[^>]*post[^>]*>([\s\S]*?)<\/div>/i,
+        /<div[^>]*entry[^>]*>([\s\S]*?)<\/div>/i
+      ];
+      
+      for (const pattern of contentPatterns) {
+        const match = html.match(pattern);
+        if (match && match[1].trim()) {
+          content = match[1];
+          console.log(`📄 일반 웹사이트 본문 패턴 매칭 성공 (${content.length}자)`);
+          break;
+        }
+      }
+      
+      if (content) {
+        // 불필요한 요소 제거
+        content = content
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+          .replace(/<header[\s\S]*?<\/header>/gi, '')
+          .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+          .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+          .replace(/<div[^>]*sidebar[^>]*>[\s\S]*?<\/div>/gi, '')
+          .replace(/<div[^>]*menu[^>]*>[\s\S]*?<\/div>/gi, '')
+          .replace(/<div[^>]*comment[^>]*>[\s\S]*?<\/div>/gi, '');
+        
+        console.log(`📄 불필요한 요소 제거 후: ${content.length}자`);
+        
+        // HTML 태그 제거하여 순수 텍스트만
+        const cleanContent = content
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&[a-z]+;/gi, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        if (cleanContent.length > 100) {
+          text = (title ? title + '\n\n' : '') + cleanContent;
+          console.log(`✅ 일반 웹사이트 제목+본문 추출 성공 (제목: ${title.length}자, 본문: ${cleanContent.length}자)`);
+        }
+      }
+    }
+    
+    // 추출된 텍스트 검증
+    if (!text || text.trim().length === 0) {
+      throw new Error('텍스트 추출에 실패했습니다.');
+    }
+    
+    console.log(`🔧 최종 추출된 텍스트 길이: ${text.length}자`);
+    
+    // 추출된 텍스트 샘플 출력 (디버깅용)
+    if (text.length < 200) {
+      console.log(`🔍 추출된 텍스트 전체: "${text}"`);
+    } else {
+      console.log(`🔍 추출된 텍스트 샘플: "${text.substring(0, 200)}..."`);
+    }
+    
+    // 토큰 절약을 위해 길이 제한 (분류에 충분한 정도)
+    if (text.length > 2000) {
+      // 앞부분 1000자 + 뒷부분 1000자로 핵심 내용 유지
+      text = text.substring(0, 1000) + '...[중략]...' + text.substring(text.length - 1000);
+    }
+    
+    blogContent = text;
+    console.log(`✅ 블로그 내용 추출 완료 (최종 ${text.length}자)`);
+    
+    return text;
+    
+  } catch (error) {
+    console.error('❌ 블로그 크롤링 실패:', error.message);
+    throw new Error(`블로그 크롤링 실패: ${error.message}. 해당 URL에서 내용을 추출할 수 없습니다.`);
+  }
+  
+  // 추출된 내용이 너무 짧으면 실패로 처리
+  if (!blogContent || blogContent.trim().length < 50) {
+    throw new Error('추출된 블로그 내용이 너무 짧습니다. 다른 URL을 시도해주세요.');
+  }
+  
+  console.log('🤖 Claude 자동 분류 시작...');
+  
+  const classifier = new AutoClassificationManager();
+  const categories = ['title', 'firstparagraph', 'closing'];
+  let newFiles = 0;
+  const processedCategories = [];
+  
+  for (const category of categories) {
+    try {
+      const result = await classifier.classifyContent(category, blogContent);
+      if (result) {
+        // 파일 저장
+        const categoryDir = path.join(__dirname, 'auto_classified', category);
+        if (!fs.existsSync(categoryDir)) {
+          fs.mkdirSync(categoryDir, { recursive: true });
+        }
+        
+        const existingFiles = fs.readdirSync(categoryDir).filter(f => f.endsWith('.txt'));
+        const nextIndex = existingFiles.length + 1;
+        const filename = category.substring(0, 2) + '_' + String(nextIndex).padStart(3, '0') + '.txt';
+        
+        const fileContent = `===user===
+${result}
+===assistant===
+${blogContent}`;
+        
+        const filePath = path.join(categoryDir, filename);
+        fs.writeFileSync(filePath, fileContent, 'utf8');
+        
+        newFiles++;
+        processedCategories.push(category);
+        console.log(`✅ ${category} 저장됨: ${filename}`);
+      }
+    } catch (error) {
+      console.error(`❌ ${category} 분류 오류:`, error.message);
+    }
+  }
+  
+  return {
+    newFiles,
+    categories: processedCategories
+  };
+}
+
+// 시스템 상태 체크 엔드포인트 (디버깅용)
+app.get('/debug/system-status', (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const status = {
+      server: {
+        status: 'running',
+        timestamp: new Date().toISOString(),
+        node_version: process.version,
+        uptime: process.uptime()
+      },
+      directories: {
+        auto_classified: fs.existsSync('./auto_classified'),
+        claude_approved: fs.existsSync('./claude_approved'),
+        training_data: fs.existsSync('./training_data'),
+        deleted_files: fs.existsSync('./deleted_files'),
+        negative_training: fs.existsSync('./negative_training')
+      },
+      files: {
+        rlhf_feedback: fs.existsSync('./rlhf_feedback.jsonl'),
+        latest_model: fs.existsSync('./latest_model.txt')
+      },
+      routes: {
+        ask: true,
+        blog: true,
+        chat: true,
+        classification: true
+      }
+    };
+    
+    // 각 카테고리별 파일 수 확인
+    const categories = ['title', 'firstparagraph', 'closing', 'story', 'usp'];
+    status.file_counts = {};
+    
+    categories.forEach(category => {
+      const categoryPath = `./auto_classified/${category}`;
+      if (fs.existsSync(categoryPath)) {
+        const files = fs.readdirSync(categoryPath).filter(f => f.endsWith('.txt'));
+        status.file_counts[category] = files.length;
+      } else {
+        status.file_counts[category] = 0;
+      }
+    });
+    
+    console.log('🔍 시스템 상태 체크 요청:', req.ip);
+    res.json(status);
+    
+  } catch (error) {
+    console.error('❌ 시스템 상태 체크 오류:', error);
+    res.status(500).json({
+      error: '시스템 상태 체크 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+});
+
+// 5) 글로벌 에러 핸들러
+app.use(globalErrorHandler);
+
+// 5) 벡터 스토어 초기화 후 서버 기동
+(async () => {
+  console.log('➡️ [vectorStore] initializing...');
+  try {
+    await initializeVectorStore(process.env.OPENAI_API_KEY);
+    console.log(`✅ [vectorStore] ready with ${chunks.length} chunks`);
+    
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+    
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('🔄 SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+    
+    process.on('SIGINT', () => {
+      console.log('🔄 SIGINT received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+    
+  } catch (e) {
+    console.error('🔥 [vectorStore] initialization failed:', e);
+    console.error('🔄 Shutting down server due to initialization failure');
+    process.exit(1);
+  }
+})();

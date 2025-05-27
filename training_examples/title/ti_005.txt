@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 창원 우울증
+[Intent]: 우울증을 방치하고 있는 사람에게 경고
+[Tags]: [Threat], [Warning]
+
+===assistant===
+창원 우울증, 방치하면 결국 이렇게 됩니다

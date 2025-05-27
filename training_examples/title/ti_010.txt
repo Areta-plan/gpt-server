@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 대구 렌트카
+[Intent]: 확인하지 않으면 실제 피해가 발생한다는 경고
+[Tags]: [Threat], [Warning]
+
+===assistant===
+대구 렌트카, 이거 확인 안하고 빌리면 벌어지는 일

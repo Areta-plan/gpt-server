@@ -1,0 +1,11 @@
+===user===
+이 내용은 단순한 표 제목이나 카테고리 구분으로 보이므로, 블로그 제목 태깅 분석 대상으로 적절하지 않습니다. 분석을 위해서는 실제 블로그 게시물의 제목이 필요합니다.
+===assistant===
+
+                <div class="se-component se-table se-l-default" id="SE-cea9197f-91b9-4e82-bd5a-9fc4d745b3e8">
+                    <div class="se-component-content">
+                        <div class="se-section se-section-table se-l-default se-section-align-center" style="width: 74%;">
+                            <div class="se-table-container">
+                                <table class="se-table-content" style="">
+                                    <tbody><tr class="se-tr"><td class="se-cell" colspan="3" rowspan="1" style="width: 100.0%; height: 43.0px;  ">
+                                                <div class="se-module se-module-text"><p class="se-text-paragraph se-text-paragraph-align-center " style="" id="SE-be0a59d7-d836-4fa9-883b-e8dbbe6388b5"><span style="" class="se-fs-fs16 se-ff-nanummaruburi   " id="SE-62771eb9-cf15-4998-88ac-70d2c68d91ef"><b>특허/상표/디자인</b></span></p>

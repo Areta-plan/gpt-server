@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 특허출원
+[Intent]: 특허출원을 혼자 하려다가 실패한 경험이 있는 사람
+[Tags]: [Reversal], [Warning]
+
+===assistant===
+특허출원, 혼자 하면 안되는 이유

@@ -98,3 +98,22 @@ logs
 *.backup
 *.bak
 *.tmp
+
+# Project specific
+deleted_files/
+*.broken
+chunksCache.json
+*.sh
+*.ps1
+
+# Training and evaluation data (keep only examples)
+negative_training/
+evaluations/
+rlhf_feedback.jsonl
+
+# Temporary script files
+*fix*.js
+*extract*.js
+*generate*.js
+meaningParser.js
+prompts.js

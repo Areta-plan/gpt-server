@@ -2,7 +2,9 @@ const express = require('express');
 const ClassificationManager = require('../lib/classificationManager');
 const AnthropicClient = require('../lib/anthropicClient');
 const CLASSIFICATION_PROMPTS = require('../lib/classificationPrompts');
+const RLHFManager = require('../lib/rlhfManager');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { successResponse, errorResponse, logError } = require('../lib/utils');
 
 const router = express.Router();
 const manager = new ClassificationManager();
@@ -13,12 +15,9 @@ router.post('/', asyncHandler(async (req, res) => {
   const { text } = req.body;
   
   if (!text || text.trim() === '') {
-    return res.status(400).json({
-      error: '분류할 텍스트를 입력하세요.'
-    });
+    return res.status(400).json(errorResponse('분류할 텍스트를 입력하세요.', 400));
   }
 
-  console.log('🤖 RLHF-Enhanced Classification Request:', { textLength: text.length });
 
   const results = {};
   const categories = ['title', 'firstparagraph', 'closing', 'story', 'usp'];
@@ -28,34 +27,20 @@ router.post('/', asyncHandler(async (req, res) => {
     for (const category of categories) {
       const prompt = CLASSIFICATION_PROMPTS[category];
       if (prompt) {
-        console.log(`🔍 Classifying ${category} with RLHF enhancements...`);
         const result = await anthropic.classify(prompt, text, [], category);
         if (result && result.trim()) {
           results[category] = result;
-          console.log(`✅ ${category} classification completed`);
         }
       }
     }
 
     // 스토리 탐지 추가
     const hasStory = await anthropic.detectStory(text);
-    if (hasStory && results.story) {
-      console.log('📖 Story detected and classified');
-    } else if (hasStory) {
-      console.log('📖 Story detected but classification failed');
-    }
 
-    console.log('🎯 RLHF-Enhanced Classification Results:', {
-      categoriesProcessed: Object.keys(results).length,
-      hasStory: hasStory
-    });
-
-    res.json(results);
+    res.json(successResponse(results, '분류가 완료되었습니다.'));
   } catch (error) {
-    console.error('❌ Classification error:', error);
-    res.status(500).json({
-      error: '분류 처리 중 오류가 발생했습니다.'
-    });
+    logError('Classification error', error);
+    res.status(500).json(errorResponse('분류 처리 중 오류가 발생했습니다.'));
   }
 }));
 
@@ -248,6 +233,132 @@ router.delete('/delete-file', asyncHandler(async (req, res) => {
     
     console.log('❌ 서버 오류 응답 전송:', errorResponse);
     res.status(500).json(errorResponse);
+  }
+}));
+
+// 반복 문구 관리 엔드포인트들
+
+// 반복 문구 추가
+router.post('/repetitive/add', asyncHandler(async (req, res) => {
+  console.log('🚫 반복 문구 추가 요청:', req.body);
+  
+  const { phrase, category = 'general' } = req.body;
+  
+  if (!phrase || phrase.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      error: '추가할 반복 문구를 입력하세요.'
+    });
+  }
+  
+  try {
+    const result = RLHFManager.addRepetitivePhrase(phrase.trim(), category);
+    
+    console.log('✅ 반복 문구 추가 완료:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ 반복 문구 추가 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '반복 문구 추가 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+}));
+
+// 반복 문구 목록 조회
+router.get('/repetitive/list', asyncHandler(async (req, res) => {
+  try {
+    const result = RLHFManager.getRepetitivePhrases();
+    
+    console.log('📋 반복 문구 목록 조회:', {
+      totalCount: result.totalCount,
+      isActive: result.isActive
+    });
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ 반복 문구 목록 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '반복 문구 목록 조회 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+}));
+
+// 반복 문구 제거
+router.delete('/repetitive/remove', asyncHandler(async (req, res) => {
+  console.log('✅ 반복 문구 제거 요청:', req.body);
+  
+  const { phrase } = req.body;
+  
+  if (!phrase || phrase.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      error: '제거할 반복 문구를 입력하세요.'
+    });
+  }
+  
+  try {
+    const result = RLHFManager.removeRepetitivePhrase(phrase.trim());
+    
+    console.log('✅ 반복 문구 제거 완료:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ 반복 문구 제거 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '반복 문구 제거 중 오류가 발생했습니다.',
+      details: error.message
+    });
+  }
+}));
+
+// 반복 문구 피드백 제출
+router.post('/repetitive/feedback', asyncHandler(async (req, res) => {
+  console.log('📝 반복 문구 피드백 제출:', req.body);
+  
+  const { content, feedback, category = 'general' } = req.body;
+  
+  if (!content || !feedback) {
+    return res.status(400).json({
+      success: false,
+      error: '내용과 피드백을 모두 입력하세요.'
+    });
+  }
+  
+  try {
+    // 피드백에서 반복 문구를 자동으로 추출하여 처리
+    const feedbackData = {
+      type: 'repetitive_complaint',
+      classification: content,
+      userFeedback: feedback,
+      category: category,
+      timestamp: new Date().toISOString(),
+      source: 'web_feedback'
+    };
+    
+    const result = await RLHFManager.processNewFeedback(feedbackData);
+    
+    console.log('✅ 반복 문구 피드백 처리 완료:', result);
+    
+    res.json({
+      success: true,
+      message: '반복 문구 피드백이 처리되어 AI가 개선되었습니다.',
+      data: result
+    });
+    
+  } catch (error) {
+    console.error('❌ 반복 문구 피드백 처리 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '피드백 처리 중 오류가 발생했습니다.',
+      details: error.message
+    });
   }
 }));
 

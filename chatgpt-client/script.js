@@ -14,6 +14,14 @@ let evaluationData = {
     finalSubmitted: false  // 최종 RLHF 제출 완료 여부
 };
 
+// 전역 변수 - 반복 문구 관리
+let repetitivePhrases = {
+    phrases: [],
+    patterns: {},
+    totalCount: 0,
+    isActive: false
+};
+
 // 평가 데이터 저장/로드 함수들
 function saveEvaluationData() {
     try {
@@ -1350,6 +1358,223 @@ async function askWithKnowledge() {
 
 // 새로운 평가 시스템으로 교체됨 - 기존 분류 함수들 제거됨
 
+// 반복 문구 관리 함수들
+
+// 반복 문구 목록 로드
+async function loadRepetitivePhrases() {
+    try {
+        const response = await fetch('/api/classification/repetitive/list');
+        const result = await response.json();
+        
+        if (result.success) {
+            repetitivePhrases = result.data;
+            updateRepetitivePhrasesDisplay();
+            console.log('📋 반복 문구 목록 로드됨:', repetitivePhrases.totalCount + '개');
+        } else {
+            console.error('❌ 반복 문구 목록 로드 실패:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ 반복 문구 목록 로드 오류:', error);
+    }
+}
+
+// 반복 문구 추가
+async function addRepetitivePhrase() {
+    const phraseInput = document.getElementById('repetitivePhrase');
+    const categorySelect = document.getElementById('repetitiveCategory');
+    
+    if (!phraseInput || !categorySelect) {
+        console.error('❌ 반복 문구 입력 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    const phrase = phraseInput.value.trim();
+    const category = categorySelect.value;
+    
+    if (!phrase) {
+        alert('반복 문구를 입력하세요.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/classification/repetitive/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ phrase, category })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            phraseInput.value = '';
+            await loadRepetitivePhrases(); // 목록 새로고침
+            
+            // 성공 메시지 표시
+            showNotification(`"${phrase}" 문구가 반복 금지 목록에 추가되었습니다.`, 'success');
+        } else {
+            showNotification('반복 문구 추가 실패: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ 반복 문구 추가 오류:', error);
+        showNotification('반복 문구 추가 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 반복 문구 제거
+async function removeRepetitivePhrase(phrase) {
+    if (!confirm(`"${phrase}" 문구를 반복 금지 목록에서 제거하시겠습니까?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/classification/repetitive/remove', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ phrase })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await loadRepetitivePhrases(); // 목록 새로고침
+            showNotification(result.message, 'success');
+        } else {
+            showNotification('반복 문구 제거 실패: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ 반복 문구 제거 오류:', error);
+        showNotification('반복 문구 제거 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 반복 문구 피드백 제출
+async function submitRepetitiveFeedback() {
+    const contentInput = document.getElementById('repetitiveFeedbackContent');
+    const feedbackInput = document.getElementById('repetitiveFeedbackText');
+    const categorySelect = document.getElementById('repetitiveFeedbackCategory');
+    
+    if (!contentInput || !feedbackInput || !categorySelect) {
+        console.error('❌ 반복 문구 피드백 입력 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    const content = contentInput.value.trim();
+    const feedback = feedbackInput.value.trim();
+    const category = categorySelect.value;
+    
+    if (!content || !feedback) {
+        alert('내용과 피드백을 모두 입력하세요.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/classification/repetitive/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content, feedback, category })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            contentInput.value = '';
+            feedbackInput.value = '';
+            await loadRepetitivePhrases(); // 목록 새로고침
+            
+            showNotification('반복 문구 피드백이 처리되어 AI가 개선되었습니다.', 'success');
+        } else {
+            showNotification('피드백 처리 실패: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ 반복 문구 피드백 오류:', error);
+        showNotification('피드백 처리 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 반복 문구 목록 화면 업데이트
+function updateRepetitivePhrasesDisplay() {
+    const listContainer = document.getElementById('repetitivePhrasesList');
+    if (!listContainer) {
+        console.error('❌ 반복 문구 목록 컨테이너를 찾을 수 없습니다.');
+        return;
+    }
+    
+    if (repetitivePhrases.totalCount === 0) {
+        listContainer.innerHTML = '<p class="no-phrases">등록된 반복 문구가 없습니다.</p>';
+        return;
+    }
+    
+    let html = `
+        <div class="phrases-summary">
+            <h4>🚫 반복 금지 문구 (${repetitivePhrases.totalCount}개)</h4>
+            <p class="status ${repetitivePhrases.isActive ? 'active' : 'inactive'}">
+                ${repetitivePhrases.isActive ? '✅ 활성화됨' : '❌ 비활성화됨'}
+            </p>
+        </div>
+        <div class="phrases-list">
+    `;
+    
+    repetitivePhrases.phrases.forEach(phrase => {
+        const count = repetitivePhrases.patterns[phrase] || 1;
+        html += `
+            <div class="phrase-item">
+                <span class="phrase-text">"${phrase}"</span>
+                <span class="phrase-count">${count}회 지적</span>
+                <button class="remove-btn" onclick="removeRepetitivePhrase('${phrase}')">
+                    🗑️ 제거
+                </button>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    listContainer.innerHTML = html;
+}
+
+// 알림 메시지 표시
+function showNotification(message, type = 'info') {
+    // 기존 알림 제거
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // 새 알림 생성
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    // 스타일 적용
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        z-index: 1000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        background-color: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // 3초 후 자동 제거
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
 // Enter 키 이벤트 처리
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -1371,4 +1596,18 @@ document.addEventListener('keydown', function(e) {
                 break;
         }
     }
+    
+    // Enter 키로 반복 문구 추가
+    if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'repetitivePhrase') {
+        e.preventDefault();
+        addRepetitivePhrase();
+    }
+});
+
+// 페이지 로드 시 반복 문구 목록 로드
+document.addEventListener('DOMContentLoaded', function() {
+    // 기존 로드 함수들 후에 실행
+    setTimeout(() => {
+        loadRepetitivePhrases();
+    }, 1000);
 });

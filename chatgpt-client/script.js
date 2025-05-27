@@ -14,13 +14,6 @@ let evaluationData = {
     finalSubmitted: false  // 최종 RLHF 제출 완료 여부
 };
 
-// 전역 변수 - 반복 문구 관리
-let repetitivePhrases = {
-    phrases: [],
-    patterns: {},
-    totalCount: 0,
-    isActive: false
-};
 
 // 평가 데이터 저장/로드 함수들
 function saveEvaluationData() {
@@ -432,14 +425,43 @@ async function loadUnratedFiles() {
             console.log('📋 받은 데이터:', data);
             
             if (data.success) {
-                evaluationData.files = data.data.unrated;
-                evaluationData.totalFiles = data.data.totalUnrated;
+                // 서버에서 받은 미평가 파일들
+                const unratedFiles = data.data.unrated;
+                
+                // localStorage에 저장된 완료된 파일들을 추가
+                const allFiles = { ...unratedFiles };
+                
+                // 완료된 평가들을 파일 목록에 추가
+                Object.entries(evaluationData.evaluations).forEach(([filename, evaluation]) => {
+                    if (evaluation.completed && evaluation.category) {
+                        const category = evaluation.category;
+                        if (!allFiles[category]) {
+                            allFiles[category] = [];
+                        }
+                        
+                        // 해당 파일이 미평가 목록에 없으면 추가
+                        const existsInUnrated = allFiles[category].some(f => f.filename === filename);
+                        if (!existsInUnrated) {
+                            allFiles[category].push({
+                                filename: filename,
+                                content: evaluation.content || '',
+                                category: category
+                            });
+                        }
+                    }
+                });
+                
+                evaluationData.files = allFiles;
+                
+                // 총 파일 수 계산 (미평가 + 완료된 파일)
+                const totalFileCount = Object.values(allFiles).reduce((sum, files) => sum + files.length, 0);
+                evaluationData.totalFiles = totalFileCount;
                 
                 // 저장된 완료 상태 개수 계산
                 evaluationData.completedFiles = Object.values(evaluationData.evaluations).filter(e => e.completed).length;
                 
-                console.log('📋 로드된 파일 수:', evaluationData.totalFiles);
-                console.log('📋 저장된 완료 평가:', evaluationData.completedFiles);
+                console.log('📋 로드된 총 파일 수:', evaluationData.totalFiles);
+                console.log('📋 완료된 평가:', evaluationData.completedFiles);
                 console.log('📋 카테고리별 파일:', Object.keys(evaluationData.files).map(cat => `${cat}: ${evaluationData.files[cat].length}`));
                 
                 renderFileList();
@@ -538,8 +560,10 @@ function renderFileList() {
             let resetButton = '';
             
             if (isSubmitted) {
-                // RLHF 제출 완료 - 파일 숨김 (표시하지 않음)
-                return '';
+                // RLHF 제출 완료 - 체크박스로 표시
+                statusIcon = '☑️';
+                statusClass = 'submitted';
+                resetButton = ''; // 제출 완료된 파일은 초기화 불가
             } else if (isEvaluated) {
                 // 평가 완료, 제출 대기
                 statusIcon = '✅';
@@ -547,9 +571,11 @@ function renderFileList() {
                 resetButton = `<button class="reset-btn" onclick="event.stopPropagation(); resetFileEvaluation('${file.filename}')" title="평가 초기화">🔄</button>`;
             }
             
+            const clickHandler = isSubmitted ? '' : `onclick="selectFile('${category}', '${file.filename}')"`;
+            
             return `
                 <div class="file-item ${statusClass}" 
-                     onclick="selectFile('${category}', '${file.filename}')"
+                     ${clickHandler}
                      data-category="${category}" 
                      data-filename="${file.filename}">
                     <span>${file.filename}</span>
@@ -586,6 +612,13 @@ function resetFileEvaluation(filename) {
 
 // 파일 선택
 async function selectFile(category, filename) {
+    // 완료된 파일 선택 방지
+    const evaluation = evaluationData.evaluations[filename];
+    if (evaluation && evaluation.submitted) {
+        console.log('⚠️ 이미 제출 완료된 파일은 선택할 수 없습니다:', filename);
+        return;
+    }
+    
     // 이전 선택 해제
     document.querySelectorAll('.file-item').forEach(item => {
         item.classList.remove('selected');
@@ -672,6 +705,14 @@ async function loadFileContent(category, filename) {
         const fileData = evaluationData.files[category]?.find(f => f.filename === filename);
         
         if (fileData) {
+            // 파일 내용을 평가 데이터에 저장 (완료된 파일 복원용)
+            const filename = evaluationData.currentFile.filename;
+            if (!evaluationData.evaluations[filename]) {
+                evaluationData.evaluations[filename] = {};
+            }
+            evaluationData.evaluations[filename].content = fileData.content || '';
+            evaluationData.evaluations[filename].category = category;
+            
             // user와 assistant 부분을 분리하여 표시
             const userContent = fileData.classification || '';
             const assistantContent = fileData.content || '';
@@ -886,8 +927,54 @@ function submitImprovementAndComplete() {
     
     evaluationData.evaluations[filename].improvement = improvementText;
     
+    // 반복 문구 피드백 자동 감지 및 처리
+    detectAndProcessRepetitiveFeedback(improvementText, evaluationData.currentFile.category);
+    
     // 즉시 평가 완료
     completeEvaluation();
+}
+
+// 반복 문구 피드백 자동 감지 및 처리
+async function detectAndProcessRepetitiveFeedback(improvementText, category) {
+    if (!improvementText) return;
+    
+    // 반복 문구 관련 키워드 체크
+    const repetitiveKeywords = ['반복', '똑같', '계속', '매번', '또', '다시', '뻔한', '진부한', '중복'];
+    const hasRepetitiveComplaint = repetitiveKeywords.some(keyword => 
+        improvementText.includes(keyword)
+    );
+    
+    if (hasRepetitiveComplaint) {
+        try {
+            // RLHF 시스템에 반복 문구 피드백 자동 제출
+            const feedbackData = {
+                type: 'repetitive_complaint',
+                classification: evaluationData.currentFile.content || '',
+                userFeedback: improvementText,
+                category: category,
+                timestamp: new Date().toISOString(),
+                source: 'improvement_suggestion',
+                filename: evaluationData.currentFile.filename
+            };
+            
+            await fetch('/api/classification/repetitive/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: feedbackData.classification,
+                    feedback: feedbackData.userFeedback,
+                    category: feedbackData.category
+                })
+            });
+            
+            console.log('🚫 반복 문구 피드백 자동 처리됨:', improvementText);
+            
+        } catch (error) {
+            console.error('❌ 반복 문구 피드백 자동 처리 실패:', error);
+        }
+    }
 }
 
 // 개별 파일 평가 완료
@@ -1358,222 +1445,6 @@ async function askWithKnowledge() {
 
 // 새로운 평가 시스템으로 교체됨 - 기존 분류 함수들 제거됨
 
-// 반복 문구 관리 함수들
-
-// 반복 문구 목록 로드
-async function loadRepetitivePhrases() {
-    try {
-        const response = await fetch('/api/classification/repetitive/list');
-        const result = await response.json();
-        
-        if (result.success) {
-            repetitivePhrases = result.data;
-            updateRepetitivePhrasesDisplay();
-            console.log('📋 반복 문구 목록 로드됨:', repetitivePhrases.totalCount + '개');
-        } else {
-            console.error('❌ 반복 문구 목록 로드 실패:', result.error);
-        }
-    } catch (error) {
-        console.error('❌ 반복 문구 목록 로드 오류:', error);
-    }
-}
-
-// 반복 문구 추가
-async function addRepetitivePhrase() {
-    const phraseInput = document.getElementById('repetitivePhrase');
-    const categorySelect = document.getElementById('repetitiveCategory');
-    
-    if (!phraseInput || !categorySelect) {
-        console.error('❌ 반복 문구 입력 요소를 찾을 수 없습니다.');
-        return;
-    }
-    
-    const phrase = phraseInput.value.trim();
-    const category = categorySelect.value;
-    
-    if (!phrase) {
-        alert('반복 문구를 입력하세요.');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/classification/repetitive/add', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ phrase, category })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            phraseInput.value = '';
-            await loadRepetitivePhrases(); // 목록 새로고침
-            
-            // 성공 메시지 표시
-            showNotification(`"${phrase}" 문구가 반복 금지 목록에 추가되었습니다.`, 'success');
-        } else {
-            showNotification('반복 문구 추가 실패: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('❌ 반복 문구 추가 오류:', error);
-        showNotification('반복 문구 추가 중 오류가 발생했습니다.', 'error');
-    }
-}
-
-// 반복 문구 제거
-async function removeRepetitivePhrase(phrase) {
-    if (!confirm(`"${phrase}" 문구를 반복 금지 목록에서 제거하시겠습니까?`)) {
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/classification/repetitive/remove', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ phrase })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            await loadRepetitivePhrases(); // 목록 새로고침
-            showNotification(result.message, 'success');
-        } else {
-            showNotification('반복 문구 제거 실패: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('❌ 반복 문구 제거 오류:', error);
-        showNotification('반복 문구 제거 중 오류가 발생했습니다.', 'error');
-    }
-}
-
-// 반복 문구 피드백 제출
-async function submitRepetitiveFeedback() {
-    const contentInput = document.getElementById('repetitiveFeedbackContent');
-    const feedbackInput = document.getElementById('repetitiveFeedbackText');
-    const categorySelect = document.getElementById('repetitiveFeedbackCategory');
-    
-    if (!contentInput || !feedbackInput || !categorySelect) {
-        console.error('❌ 반복 문구 피드백 입력 요소를 찾을 수 없습니다.');
-        return;
-    }
-    
-    const content = contentInput.value.trim();
-    const feedback = feedbackInput.value.trim();
-    const category = categorySelect.value;
-    
-    if (!content || !feedback) {
-        alert('내용과 피드백을 모두 입력하세요.');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/classification/repetitive/feedback', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ content, feedback, category })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            contentInput.value = '';
-            feedbackInput.value = '';
-            await loadRepetitivePhrases(); // 목록 새로고침
-            
-            showNotification('반복 문구 피드백이 처리되어 AI가 개선되었습니다.', 'success');
-        } else {
-            showNotification('피드백 처리 실패: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('❌ 반복 문구 피드백 오류:', error);
-        showNotification('피드백 처리 중 오류가 발생했습니다.', 'error');
-    }
-}
-
-// 반복 문구 목록 화면 업데이트
-function updateRepetitivePhrasesDisplay() {
-    const listContainer = document.getElementById('repetitivePhrasesList');
-    if (!listContainer) {
-        console.error('❌ 반복 문구 목록 컨테이너를 찾을 수 없습니다.');
-        return;
-    }
-    
-    if (repetitivePhrases.totalCount === 0) {
-        listContainer.innerHTML = '<p class="no-phrases">등록된 반복 문구가 없습니다.</p>';
-        return;
-    }
-    
-    let html = `
-        <div class="phrases-summary">
-            <h4>🚫 반복 금지 문구 (${repetitivePhrases.totalCount}개)</h4>
-            <p class="status ${repetitivePhrases.isActive ? 'active' : 'inactive'}">
-                ${repetitivePhrases.isActive ? '✅ 활성화됨' : '❌ 비활성화됨'}
-            </p>
-        </div>
-        <div class="phrases-list">
-    `;
-    
-    repetitivePhrases.phrases.forEach(phrase => {
-        const count = repetitivePhrases.patterns[phrase] || 1;
-        html += `
-            <div class="phrase-item">
-                <span class="phrase-text">"${phrase}"</span>
-                <span class="phrase-count">${count}회 지적</span>
-                <button class="remove-btn" onclick="removeRepetitivePhrase('${phrase}')">
-                    🗑️ 제거
-                </button>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    listContainer.innerHTML = html;
-}
-
-// 알림 메시지 표시
-function showNotification(message, type = 'info') {
-    // 기존 알림 제거
-    const existingNotification = document.querySelector('.notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
-    
-    // 새 알림 생성
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    
-    // 스타일 적용
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 8px;
-        color: white;
-        font-weight: bold;
-        z-index: 1000;
-        max-width: 400px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        background-color: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // 3초 후 자동 제거
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.remove();
-        }
-    }, 3000);
-}
 
 // Enter 키 이벤트 처리
 document.addEventListener('keydown', function(e) {
@@ -1596,18 +1467,4 @@ document.addEventListener('keydown', function(e) {
                 break;
         }
     }
-    
-    // Enter 키로 반복 문구 추가
-    if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'repetitivePhrase') {
-        e.preventDefault();
-        addRepetitivePhrase();
-    }
-});
-
-// 페이지 로드 시 반복 문구 목록 로드
-document.addEventListener('DOMContentLoaded', function() {
-    // 기존 로드 함수들 후에 실행
-    setTimeout(() => {
-        loadRepetitivePhrases();
-    }, 1000);
 });

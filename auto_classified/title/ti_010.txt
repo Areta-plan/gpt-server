@@ -1,0 +1,6 @@
+===user===
+Keyword: [상표권존속기간]
+Intent: [갱신 시기를 놓쳐 권리를 잃을까 불안해하는 사업자]
+Tags: [Threat], [Warning], [Specificity]
+===assistant===
+상표권존속기간, 갱신 누락시 생기는 상황

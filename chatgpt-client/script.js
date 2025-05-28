@@ -19,9 +19,7 @@ let evaluationData = {
 function saveEvaluationData() {
     try {
         localStorage.setItem('evaluationData', JSON.stringify(evaluationData));
-        console.log('💾 평가 데이터 저장됨');
     } catch (error) {
-        console.error('❌ 평가 데이터 저장 실패:', error);
     }
 }
 
@@ -48,11 +46,9 @@ function loadEvaluationData() {
                 }, 100);
             }
             
-            console.log('📂 저장된 평가 데이터 로드됨:', Object.keys(evaluationData.evaluations).length, '개 파일', evaluationData.finalSubmitted ? '(최종 제출 완료)' : '');
             return true;
         }
     } catch (error) {
-        console.error('❌ 평가 데이터 로드 실패:', error);
     }
     return false;
 }
@@ -61,12 +57,10 @@ function clearEvaluationData() {
     localStorage.removeItem('evaluationData');
     evaluationData.evaluations = {};
     evaluationData.completedFiles = 0;
-    console.log('🗑️ 평가 데이터 초기화됨');
 }
 
 // 완료된 파일 상태를 UI에 복원
 function restoreCompletedFileStatus() {
-    console.log('🔄 완료된 파일 상태 복원 중...');
     
     for (const [filename, evaluation] of Object.entries(evaluationData.evaluations)) {
         if (evaluation.completed) {
@@ -81,7 +75,6 @@ function restoreCompletedFileStatus() {
             
             if (fileCategory) {
                 updateFileItemStatus(fileCategory, filename);
-                console.log(`✅ 완료 상태 복원: ${fileCategory}/${filename}`);
             }
         }
     }

@@ -37,15 +37,12 @@ function getLatestModel() {
     
     // 파일 내용이 job ID 형태라면 기본 모델 사용
     if (!content || content.includes('Job ftjob-') || content.startsWith('#')) {
-      console.log('📋 Using default model: gpt-4o-mini (no fine-tuned model available)');
       return 'gpt-4o-mini';
     }
     
     // 실제 모델 ID인 경우
-    console.log('🤖 Using fine-tuned model:', content);
     return content;
   } catch (error) {
-    console.log('📋 Using default model: gpt-4o-mini (latest_model.txt not found)');
     return 'gpt-4o-mini';
   }
 }

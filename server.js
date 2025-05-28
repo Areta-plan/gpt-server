@@ -35,7 +35,6 @@ const { globalErrorHandler } = require('./middleware/errorHandler');
 
 // 2) 정적 파일 서빙 (chatgpt-client 폴더)
 const clientDir = path.join(__dirname, 'chatgpt-client');
-console.log(`🔧 Serve static files from: ${clientDir}`);
 app.use(express.static(clientDir));
 
 // (선택) 루트 경로에서 index.html 제공
@@ -56,7 +55,6 @@ app.post('/rlhf-feedback', async (req, res) => {
   try {
     const feedbackData = req.body;
     
-    console.log('📊 RLHF Feedback received:', feedbackData);
     
     // 개별 평가 vs 일괄 평가 구분
     let processedFeedback;
@@ -86,7 +84,6 @@ app.post('/rlhf-feedback', async (req, res) => {
     
     res.json(result);
   } catch (error) {
-    console.error('❌ RLHF 피드백 처리 오류:', error);
     res.status(500).json({ 
       error: 'RLHF 피드백 처리 중 오류가 발생했습니다.' 
     });
@@ -99,7 +96,6 @@ app.get('/rlhf-stats', (req, res) => {
     const stats = rlhfManager.getPerformanceStats();
     res.json(stats);
   } catch (error) {
-    console.error('❌ RLHF 통계 조회 오류:', error);
     res.status(500).json({ 
       error: 'RLHF 통계 조회 중 오류가 발생했습니다.' 
     });
@@ -118,7 +114,6 @@ app.post('/extract-blog', async (req, res) => {
       });
     }
     
-    console.log('🔗 블로그 추출 요청:', url);
     
     // 블로그 추출 및 분류 실행
     const result = await extractAndClassifyBlog(url);
@@ -131,7 +126,6 @@ app.post('/extract-blog', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ 블로그 추출 오류:', error);
     res.status(500).json({
       success: false,
       error: error.message || '블로그 추출 중 오류가 발생했습니다.'

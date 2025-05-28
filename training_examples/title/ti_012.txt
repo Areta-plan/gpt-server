@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 마산 우울증 치료  
+[Intent]: 우울 증상을 방치하고 있는 사람에게 심각한 결과를 경고  
+[Tags]: [Threat], [Warning]
+
+===assistant===
+마산 우울증 치료, 심해져도 놔둔다면 당신이 겪게 될 결말

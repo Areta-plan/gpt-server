@@ -1,0 +1,7 @@
+===user===
+[Keyword]: 마산 부부상담  
+[Intent]: 배우자와의 대화 단절로 갈등을 겪고 있는 부부  
+[Tags]: [Targeting], [Empathy]
+
+===assistant===
+마산 부부상담, 배우자와 말이 안 통하는 분만 보세요

@@ -469,10 +469,54 @@ async function saveClassificationFile(category, prefix, classification, content)
     const nextIndex = existingFiles.length + 1;
     const filename = prefix + String(nextIndex).padStart(3, '0') + '.txt';
     
+    // firstparagraph와 closing에 정리 로직 적용
+    let cleanedContent = content;
+    if (category === 'firstparagraph' || category === 'closing') {
+      console.log(`🔧 ${category} 정리 로직 적용 시작...`);
+      console.log(`🔧 정리 전 길이: ${content.length}`);
+      
+      cleanedContent = content
+        .replace(/​+/g, '') // 네이버 특수문자 제거
+        .replace(/https?:\/\/[^\s]+/g, '') // URL 제거
+        .replace(/\b(?:010|1544|02|051|053|032|062|042|052|044)[-\s]?\d{3,4}[-\s]?\d{4}\b/g, '') // 전화번호 제거
+        .replace(/\S+@\S+\.\S+/g, '') // 이메일 제거
+        
+        // 주소 제거
+        .replace(/경상남도.*?상가.*?호/g, '')
+        .replace(/부산광역시.*?\d+층/g, '')
+        .replace(/(?:서울|부산|대구|인천|광주|대전|울산|세종|경기도|강원도|충청북도|충청남도|전라북도|전라남도|경상북도|경상남도|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?.*?(?:구|시|군).*?(?:로|길|동).*?(?:\d+호|\d+층|상가|빌딩|센터|타워)/g, '')
+        
+        // 링크 텍스트 껍데기 제거
+        .replace(/함께\s*읽으면\s*좋은\s*글[\s\S]*$/g, '')
+        .replace(/센터\s*치료사\s*선생님들을\s*소개합니다!?/g, '')
+        .replace(/좋은\s*선생님들?\s*있는\s*곳\s*알려주세요\.?.*$/gm, '')
+        .replace(/놀란\s*가슴을\s*부여잡고\s*오신\s*어머님들께\s*드리는\s*편지/g, '')
+        .replace(/해운대\s*감통치료\s*비용.*?좋을까요\?/g, '')
+        .replace(/감통치료를\s*알아보는데.*?어떤\s*차이가\s*있나요\?.*?/g, '')
+        .replace(/\d+년?\s*차\s*치?.*?졸업?.*?석사.*?/g, '')
+        .replace(/대표\s*이\s*지\s*영.*?석사.*?졸?.*?/g, '')
+        
+        // 센터 정보 제거
+        .replace(/이지언어행동발달센터.*?부산가야점?/g, '')
+        .replace(/이지언어행동발달센터\s*이지영\s*원장이었습니다\.?/g, '')
+        
+        // 안내 섹션 제거
+        .replace(/안내[\s\S]*?예약제로\s*운영.*?진심으로/g, '')
+        .replace(/모두\s*예약제로\s*운영.*?진심으로/g, '')
+        .replace(/한\s*명\s*한\s*명과\s*진심으로/g, '')
+        .replace(/톡톡이나\s*번호를\s*통해[\s\S]*?말씀드리겠습니다\.?/g, '')
+        
+        // 기타 정리
+        .replace(/\n\s*\n\s*\n+/g, '\n\n')
+        .trim();
+      
+      console.log(`🔧 정리 후 길이: ${cleanedContent.length}`);
+    }
+    
     const fileContent = `===user===
 ${classification}
 ===assistant===
-${content}`;
+${cleanedContent}`;
     
     const filePath = path.join(categoryDir, filename);
     fs.writeFileSync(filePath, fileContent, 'utf8');
@@ -493,26 +537,29 @@ async function extractAndClassifyBlog(url) {
   
   console.log('📥 블로그 내용 추출 시작...');
   
+  // 스코프 문제 해결을 위한 변수 선언
+  let cleanTitle = '';
+  let blogContent = '';
+  
   // 추출 방법 체인 설정
   const extractionChain = url.includes('blog.naver.com') ? [
     { name: 'Puppeteer', method: () => extractWithPuppeteer(url) },
     { name: 'Mobile', method: () => extractWithFetch(url.replace('blog.naver.com', 'm.blog.naver.com')) },
-    { name: 'Direct API', method: () => extractNaverBlogDirect(url) },
     { name: 'Fetch Fallback', method: () => extractWithFetch(url) }
   ] : [
     { name: 'Fetch', method: () => extractWithFetch(url) }
   ];
-  
-  let blogContent = '';
   
   try {
     // 순차적 추출 시도
     for (const { name, method } of extractionChain) {
       try {
         console.log(`🔧 ${name} 시도...`);
-        blogContent = await method();
-        if (blogContent && blogContent.trim().length >= 50) {
-          console.log(`✅ ${name} 성공 (${blogContent.length}자)`);
+        const result = await method();
+        if (result && result.content && result.content.trim().length >= 50) {
+          console.log(`✅ ${name} 성공 (${result.content.length}자)`);
+          blogContent = result.content;
+          cleanTitle = result.title || '';
           break;
         }
       } catch (error) {
@@ -527,26 +574,14 @@ async function extractAndClassifyBlog(url) {
     
     // 링크 및 불필요한 요소 제거 (개선된 필터링)
     blogContent = cleanBlogContent(blogContent);
-    
     console.log(`✅ 블로그 내용 추출 완료 (${blogContent.length}자)`);
     
-    // 블로그 내용 분석 및 분류
-    console.log('🧠 블로그 내용 분석 시작...');
-    
-    // 제목과 본문 분리
+    // iframe에서 추출한 제목을 그대로 사용 (이미 cleanTitle로 정리됨)
+    // 블로그 내용은 본문으로만 사용
     const lines = blogContent.split('\n').filter(line => line.trim().length > 0);
-    let title = '';
-    let bodyContent = '';
+    let bodyContent = lines.join('\n').trim();
     
-    if (lines.length > 0) {
-      // 첫 번째 줄을 제목으로 가정
-      title = lines[0].trim();
-      // 나머지를 본문으로 처리
-      bodyContent = lines.slice(1).join('\n').trim();
-    }
-    
-    console.log(`📝 제목 (${title.length}자): "${title}"`);
-    console.log(`📄 본문: ${bodyContent.length}자`);
+    console.log(`📝 제목 추출 완료: "${cleanTitle}" (${cleanTitle.length}자)`);
     
     const classifier = new AutoClassificationManager();
     let newFiles = 0;
@@ -556,8 +591,8 @@ async function extractAndClassifyBlog(url) {
     const classificationTasks = [
       {
         name: 'title',
-        condition: () => title.length > 5,
-        content: () => title,
+        condition: () => cleanTitle.length > 5,
+        content: () => cleanTitle,
         prefix: 'ti_'
       },
       {
@@ -608,75 +643,6 @@ async function extractAndClassifyBlog(url) {
 }
 
 // 네이버 블로그 직접 추출 함수
-async function extractNaverBlogDirect(url) {
-  console.log('🔍 네이버 블로그 직접 API 접근 시도...');
-  
-  // URL에서 blogId와 logNo 추출
-  const blogIdMatch = url.match(/blogId=([^&]+)/);
-  const logNoMatch = url.match(/logNo=(\d+)/);
-  
-  if (!blogIdMatch || !logNoMatch) {
-    throw new Error('네이버 블로그 URL 파라미터를 찾을 수 없습니다');
-  }
-  
-  const blogId = blogIdMatch[1];
-  const logNo = logNoMatch[1];
-  
-  // Print 버전으로 접근 (가장 단순한 HTML)
-  const printUrl = `https://blog.naver.com/PostPrint.naver?blogId=${blogId}&logNo=${logNo}`;
-  
-  try {
-    console.log(`📄 Print 버전 접근: ${printUrl}`);
-    
-    const response = await fetch(printUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9',
-        'Referer': 'https://blog.naver.com'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const html = await response.text();
-    
-    // Print 버전에서는 순수 텍스트를 더 쉽게 추출할 수 있음
-    let content = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&[a-z]+;/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // 제목 추출
-    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    let title = '';
-    if (titleMatch) {
-      title = titleMatch[1].trim();
-      if (title.includes(' : ')) {
-        title = title.split(' : ')[0];
-      }
-    }
-    
-    if (content.length > 100) {
-      const result = (title ? title + '\n\n' : '') + content;
-      console.log(`✅ Print 버전 추출 성공 (${result.length}자)`);
-      return result;
-    }
-    
-    throw new Error('Print 버전에서도 충분한 내용을 추출하지 못했습니다');
-    
-  } catch (error) {
-    console.log(`⚠️ Print 버전 실패: ${error.message}`);
-    throw error;
-  }
-}
-
 // Puppeteer를 사용한 네이버 블로그 추출 (Python selenium 코드와 동일한 방식)
 async function extractWithPuppeteer(url) {
   let browser = null;
@@ -773,21 +739,74 @@ async function extractWithPuppeteer(url) {
       .replace(/[ \t]+/g, ' ')                 // Replace multiple spaces with single space
       .trim();                                 // Remove leading/trailing whitespace
     
-    // Extract title from main page
-    const title = await page.evaluate(() => {
-      return document.querySelector('title')?.textContent || '';
-    });
+    // iframe 전환 후 페이지 소스에서 제목 추출 (Python 코드 방식)
+    // iframe 전환 후 전체 HTML 소스 가져오기
+    const iframeSource = await mainFrame.content();
+    let title = '';
+    
+    // 1. HTML title 태그에서 추출
+    const titleMatch = iframeSource.match(/<title[^>]*>([^<]*)<\/title>/i);
+    if (titleMatch) {
+      const htmlTitle = titleMatch[1].trim();
+      
+      // 네이버 블로그 제목 형식 처리
+      if (htmlTitle.includes(' : ')) {
+        title = htmlTitle.split(' : ')[0].trim();
+      } else if (htmlTitle.includes(' | ')) {
+        title = htmlTitle.split(' | ')[0].trim();
+      } else {
+        title = htmlTitle;
+      }
+    }
+    
+    // 2. iframe 내 DOM에서 제목 요소 찾기 (fallback)
+    if (!title || title.length < 10) {
+      console.log('🔄 DOM에서 제목 요소 찾기...');
+      title = await mainFrame.evaluate(() => {
+        // 제목 요소들 우선순위 순으로 검색
+        const titleSelectors = [
+          '.se-title-text',
+          '.se-text-paragraph:first-of-type',
+          'h1',
+          '.se-text-paragraph[data-se-type="text"]',
+          '.se-module-text .se-text-paragraph'
+        ];
+        
+        for (const selector of titleSelectors) {
+          const element = document.querySelector(selector);
+          if (element && element.textContent.trim().length > 10) {
+            console.log(`✅ DOM에서 제목 발견 (${selector}): "${element.textContent.trim()}"`);
+            return element.textContent.trim();
+          }
+        }
+        
+        return '';
+      });
+    }
+    
+    
+    console.log(`🔍 추출된 원본 제목: "${title}" (${title.length}자)`);
     
     let cleanTitle = title.trim();
+    console.log(`🔍 정리 전 제목: "${cleanTitle}" (${cleanTitle.length}자)`);
+    
     if (cleanTitle.includes(' : ')) {
+      const before = cleanTitle;
       cleanTitle = cleanTitle.split(' : ')[0].trim();
+      console.log(`🔧 ' : ' 분리: "${before}" → "${cleanTitle}"`);
     }
     if (cleanTitle.includes(' | ')) {
+      const before = cleanTitle;
       cleanTitle = cleanTitle.split(' | ')[0].trim();
+      console.log(`🔧 ' | ' 분리: "${before}" → "${cleanTitle}"`);
     }
     if (cleanTitle.includes(' - ')) {
+      const before = cleanTitle;
       cleanTitle = cleanTitle.split(' - ')[0].trim();
+      console.log(`🔧 ' - ' 분리: "${before}" → "${cleanTitle}"`);
     }
+    
+    console.log(`🔍 정리 후 제목: "${cleanTitle}" (${cleanTitle.length}자)`);
     
     // 7. Return the cleaned content
     let result = (cleanTitle ? cleanTitle + '\n\n' : '') + cleanContent;
@@ -802,7 +821,10 @@ async function extractWithPuppeteer(url) {
     
     if (result.length > 50) {
       console.log(`✅ Puppeteer 추출 성공 (${result.length}자)`);
-      return result;
+      return {
+        title: cleanTitle,
+        content: result
+      };
     } else {
       throw new Error('추출된 컨텐츠가 충분하지 않습니다');
     }

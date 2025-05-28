@@ -26,12 +26,15 @@ function saveEvaluationData() {
 function loadEvaluationData() {
     try {
         const saved = localStorage.getItem('evaluationData');
+        console.log('💾 localStorage 데이터 로드:', saved);
         if (saved) {
             const parsedData = JSON.parse(saved);
+            console.log('💾 파싱된 데이터:', parsedData);
             // 기존 데이터와 병합 (files 정보는 서버에서 새로 가져오고, evaluations만 복원)
             evaluationData.evaluations = parsedData.evaluations || {};
             evaluationData.completedFiles = parsedData.completedFiles || 0;
             evaluationData.finalSubmitted = parsedData.finalSubmitted || false;
+            console.log('💾 복원된 evaluationData:', evaluationData);
             
             // 최종 제출 완료된 경우 리셋 버튼 비활성화
             if (evaluationData.finalSubmitted) {
@@ -183,6 +186,19 @@ async function extractBlog() {
             
             // URL 입력창 비우기
             urlInput.value = '';
+            
+            // 새로운 블로그 추출 시 평가 데이터 리셋 (중요!)
+            console.log('🔄 새 블로그 추출 - 평가 데이터 리셋');
+            evaluationData = {
+                files: {},
+                currentFile: null,
+                evaluations: {},
+                totalFiles: 0,
+                completedFiles: 0,
+                finalSubmitted: false,
+                currentEvaluation: null
+            };
+            localStorage.removeItem('evaluationData');
             
             // 파일 목록 새로고침
             setTimeout(() => {
@@ -543,28 +559,35 @@ function renderFileList() {
             return;
         }
         
+        // 최종 RLHF 제출 완료 시에만 파일 목록 숨김 (디버깅)
+        console.log('🔍 파일 목록 표시 체크:', {
+            finalSubmitted: evaluationData.finalSubmitted,
+            evaluationsCount: Object.keys(evaluationData.evaluations).length,
+            evaluations: evaluationData.evaluations
+        });
+        
+        if (evaluationData.finalSubmitted && Object.keys(evaluationData.evaluations).length === 0) {
+            console.log('❌ 파일 목록 숨김 - 최종 제출 완료');
+            container.innerHTML = '<p class="no-files">평가 완료 - RLHF 제출이 완료되었습니다</p>';
+            return;
+        }
+        
         container.innerHTML = files.map(file => {
             const evaluation = evaluationData.evaluations[file.filename];
             const isEvaluated = evaluation && evaluation.completed;
-            const isSubmitted = evaluation && evaluation.submitted;
             
             let statusIcon = '⏳'; // 기본: 평가 대기
             let statusClass = '';
             let resetButton = '';
             
-            if (isSubmitted) {
-                // RLHF 제출 완료 - 체크박스로 표시
-                statusIcon = '☑️';
-                statusClass = 'submitted';
-                resetButton = ''; // 제출 완료된 파일은 초기화 불가
-            } else if (isEvaluated) {
-                // 평가 완료, 제출 대기
+            if (isEvaluated) {
+                // 평가 완료 (제안하기 눌름) - 초록색 체크, 열람 가능
                 statusIcon = '✅';
                 statusClass = 'evaluated';
                 resetButton = `<button class="reset-btn" onclick="event.stopPropagation(); resetFileEvaluation('${file.filename}')" title="평가 초기화">🔄</button>`;
             }
             
-            const clickHandler = isSubmitted ? '' : `onclick="selectFile('${category}', '${file.filename}')"`;
+            const clickHandler = `onclick="selectFile('${category}', '${file.filename}')"`;
             
             return `
                 <div class="file-item ${statusClass}" 
@@ -605,12 +628,8 @@ function resetFileEvaluation(filename) {
 
 // 파일 선택
 async function selectFile(category, filename) {
-    // 완료된 파일 선택 방지
-    const evaluation = evaluationData.evaluations[filename];
-    if (evaluation && evaluation.submitted) {
-        console.log('⚠️ 이미 제출 완료된 파일은 선택할 수 없습니다:', filename);
-        return;
-    }
+    
+    // 최종 제출 완료 시에는 파일 목록이 숨겨지므로 이 함수 호출되지 않음
     
     // 이전 선택 해제
     document.querySelectorAll('.file-item').forEach(item => {
@@ -627,8 +646,15 @@ async function selectFile(category, filename) {
     
     // 저장된 평가 상태가 있으면 복원, 없으면 초기화
     const savedEvaluation = evaluationData.evaluations[filename];
-    if (savedEvaluation && savedEvaluation.completed && !savedEvaluation.submitted) {
-        // 평가 완료되었지만 아직 제출되지 않은 경우: 평가 결과 복원
+    
+    // currentEvaluation 초기화 (중요!)
+    if (!evaluationData.evaluations[filename]) {
+        evaluationData.evaluations[filename] = {};
+    }
+    evaluationData.currentEvaluation = evaluationData.evaluations[filename];
+    
+    if (savedEvaluation && savedEvaluation.completed) {
+        // 평가 완료된 경우: 평가 결과 복원 (다시 열람 가능)
         restoreEvaluationState(savedEvaluation);
     } else {
         // 새 파일이거나 미평가 파일: 초기화
@@ -679,11 +705,13 @@ function setStarRating(type, score) {
         }
     });
     
-    // 점수 저장
-    if (type === 'classification') {
-        evaluationData.currentEvaluation.classificationScore = score;
-    } else if (type === 'tagging') {
-        evaluationData.currentEvaluation.taggingScore = score;
+    // 점수 저장 (안전장치 추가)
+    if (evaluationData.currentEvaluation) {
+        if (type === 'classification') {
+            evaluationData.currentEvaluation.classificationScore = score;
+        } else if (type === 'tagging') {
+            evaluationData.currentEvaluation.taggingScore = score;
+        }
     }
 }
 
@@ -1033,14 +1061,14 @@ function updateEvaluationStats() {
     document.getElementById('evaluationProgress').textContent = `평가 진행: ${completed}/${evaluationData.totalFiles}`;
     document.getElementById('completedCount').textContent = `완료: ${completed}개`;
     
-    // 모든 평가 완료 시 제출 버튼 활성화
+    // 모든 파일 평가 완료 시에만 제출 버튼 활성화
     const submitBtn = document.getElementById('submitAllBtn');
-    if (completed > 0) {
+    if (completed === evaluationData.totalFiles && completed > 0) {
         submitBtn.disabled = false;
         submitBtn.textContent = `🚀 ${completed}개 평가 완료 - RLHF 제출`;
     } else {
         submitBtn.disabled = true;
-        submitBtn.textContent = '🚀 모든 평가 완료 후 RLHF 제출';
+        submitBtn.textContent = `🚀 모든 평가 완료 후 RLHF 제출 (${completed}/${evaluationData.totalFiles})`;
     }
 }
 
@@ -1137,9 +1165,10 @@ async function submitAllEvaluations() {
             // 최종 제출 완료 마킹
             evaluationData.finalSubmitted = true;
             
-            // 평가 데이터 초기화
+            // 평가 데이터 초기화 (파일 목록 숨김을 위해)
             evaluationData.evaluations = {};
             evaluationData.completedFiles = 0;
+            evaluationData.currentFile = null;
             
             // 제출 완료 상태 저장
             saveEvaluationData();
@@ -1153,8 +1182,14 @@ async function submitAllEvaluations() {
                 resetBtn.title = '최종 제출 완료 후에는 초기화할 수 없습니다';
             }
             
-            // UI 재로드
+            // UI 재로드 (파일 목록 숨김)
             loadUnratedFiles();
+            
+            // 평가 섹션 숨김
+            const evaluationSection = document.getElementById('evaluationSection');
+            if (evaluationSection) {
+                evaluationSection.style.display = 'none';
+            }
         } else {
             alert(`❌ 제출 실패: ${result.error || '알 수 없는 오류'}`);
         }
@@ -1281,6 +1316,10 @@ function resetFileViewer() {
 // 4. 지식 베이스 로드
 async function loadKnowledgeFiles() {
     const container = document.getElementById('knowledgeFiles');
+    if (!container) {
+        console.log('📚 knowledgeFiles 엘리먼트가 없습니다. 건너뜁니다.');
+        return;
+    }
     container.innerHTML = `
         <div class="empty-state">
             <div class="empty-state-icon">📚</div>

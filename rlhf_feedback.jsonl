@@ -33,3 +33,4 @@
 {"type":"individual_evaluation","filename":"cl_006.txt","category":"closing","classificationScore":2,"taggingScore":4,"improvement":"","timestamp":"2025-05-27T15:19:54.463Z","processedAt":"2025-05-27T15:19:54.468Z"}
 {"timestamp":"2025-05-27T15:19:57.493Z","processedAt":"2025-05-27T15:19:57.500Z"}
 {"type":"individual_evaluation","filename":"ti_015.txt","category":"title","classificationScore":4,"taggingScore":3,"improvement":"","timestamp":"2025-05-28T02:16:43.307Z","processedAt":"2025-05-28T02:16:43.360Z"}
+{"type":"individual_evaluation","filename":"fp_009.txt","category":"firstparagraph","classificationScore":4,"taggingScore":4,"improvement":"","timestamp":"2025-05-28T02:19:30.633Z","processedAt":"2025-05-28T02:19:30.636Z"}

@@ -55,7 +55,8 @@
       "Bash(claude update)",
       "Bash(npm ls:*)",
       "Bash(npm audit:*)",
-      "Bash(sudo npm install:*)"
+      "Bash(sudo npm install:*)",
+      "Bash(killall:*)"
     ],
     "deny": []
   },

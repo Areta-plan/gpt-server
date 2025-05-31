@@ -177,23 +177,24 @@ router.get('/jobs/:jobId/status', asyncHandler(async (req, res) => {
 // 모델 테스트
 router.post('/test', asyncHandler(async (req, res) => {
   try {
-    const { modelId, testInput } = req.body;
+    const { modelId, testInput, category = 'title' } = req.body;
     
     if (!modelId || !testInput) {
       return res.status(400).json(errorResponse('modelId와 testInput이 필요합니다.'));
     }
 
-    console.log(`🧪 모델 ${modelId} 테스트 시작`);
+    console.log(`🧪 모델 ${modelId} ${category} 테스트 시작`);
     
-    const result = await fineTuner.testFineTunedModel(modelId, testInput);
+    const result = await fineTuner.testFineTunedModel(modelId, testInput, category);
     
     console.log('✅ 모델 테스트 완료');
     res.json(successResponse({ 
       input: testInput, 
       output: result,
+      category: category,
       model: modelId,
       timestamp: new Date().toISOString()
-    }, '모델 테스트가 성공적으로 완료되었습니다.'));
+    }, `${category} 모델 테스트가 성공적으로 완료되었습니다.`));
 
   } catch (error) {
     logError('Model test error', error);

@@ -127,6 +127,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 저장된 평가 데이터 로드
     loadEvaluationData();
     
+    // 초기 플레이스홀더 설정
+    updateTestPlaceholder();
+    
     // 시스템 상태 체크
     const systemStatus = await checkSystemStatus();
     if (systemStatus) {
@@ -1751,14 +1754,60 @@ async function loadAvailableModels() {
     }
 }
 
+// 카테고리 변경 시 플레이스홀더 업데이트
+function updateTestPlaceholder() {
+    const categorySelect = document.getElementById('categorySelect');
+    const testInput = document.getElementById('testInput');
+    
+    if (!categorySelect || !testInput) return;
+    
+    const placeholders = {
+        title: `테스트 입력을 작성하세요...
+
+Title 예시:
+[Keyword]: 부산 심리상담
+[Intent]: 비용이 걱정되는 사람
+[Tags]: [Reversal], [Cost-related]`,
+        
+        firstparagraph: `첫 문단 내용을 입력하세요...
+
+FirstParagraph 예시:
+안녕하세요. 15년간 아동 발달의 한 길만 걸어온 이지언어행동발달센터 대표원장 이지영이라고 합니다.
+14년간 20000회기 이상의 실치료를 진행하면서...`,
+        
+        closing: `클로징 문단 내용을 입력하세요...
+
+Closing 예시:
+하늘땅만큼 소중한 우리 아이의 센터는 정말 세심하고 신중하게 골라야 합니다.
+그러니 꼭 여러 글을 둘러보시고 결정하시길 바랄게요...`,
+        
+        story: `스토리 내용을 입력하세요...
+
+Story 예시:
+그날 저에게 찾아온 한 어머님은...
+아이가 말을 하지 않아서 너무 걱정이 된다고 하셨습니다...`,
+        
+        usp: `USP 분석할 본문을 입력하세요...
+
+USP 예시:
+센터를 고를 때는 이런 점을 확인하세요.
+첫째, 치료사의 경력이 얼마나 되는지...`
+    };
+    
+    const category = categorySelect.value;
+    testInput.placeholder = placeholders[category] || placeholders.title;
+}
+
 // 모델 테스트
 async function testModel() {
     const modelSelect = document.getElementById('modelSelect');
+    const categorySelect = document.getElementById('categorySelect');
     const testInput = document.getElementById('testInput');
     const testResult = document.getElementById('testResult');
     const testBtn = document.getElementById('testModelBtn');
     
     const modelId = modelSelect.value;
+    const category = categorySelect.value;
     const input = testInput.value.trim();
     
     if (!modelId || !input) {
@@ -1774,7 +1823,7 @@ async function testModel() {
         testResult.className = 'test-result';
         testResult.textContent = '테스트 진행 중...';
         
-        addFineTuneLog(`모델 테스트 시작: ${modelId}`, 'info');
+        addFineTuneLog(`모델 테스트 시작: ${modelId} (${category})`, 'info');
         
         const response = await fetch('/api/finetune/test', {
             method: 'POST',
@@ -1783,7 +1832,8 @@ async function testModel() {
             },
             body: JSON.stringify({
                 modelId: modelId,
-                testInput: input
+                testInput: input,
+                category: category
             })
         });
         
@@ -1793,13 +1843,14 @@ async function testModel() {
             const testData = result.data;
             testResult.className = 'test-result success';
             testResult.innerHTML = `
+                <strong>카테고리:</strong> ${testData.category}<br><br>
                 <strong>입력:</strong><br>
                 ${testData.input}<br><br>
                 <strong>출력:</strong><br>
-                ${testData.output}
+                <pre>${testData.output}</pre>
             `;
             
-            addFineTuneLog('모델 테스트 완료', 'success');
+            addFineTuneLog(`${testData.category} 모델 테스트 완료`, 'success');
             
         } else {
             throw new Error(result.message);

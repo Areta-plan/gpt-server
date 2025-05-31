@@ -498,10 +498,18 @@ async function saveClassificationFile(category, prefix, classification, content)
       console.log(`🔧 정리 후 길이: ${cleanedContent.length}`);
     }
     
-    const fileContent = `===user===
+    // Check if classification already has proper format
+    let fileContent;
+    if (classification && classification.includes('===user===') && classification.includes('===assistant===')) {
+      // OpenAI model already returned properly formatted content
+      fileContent = classification;
+    } else {
+      // Fallback: wrap with format headers
+      fileContent = `===user===
 ${classification}
 ===assistant===
 ${cleanedContent}`;
+    }
     
     const filePath = path.join(categoryDir, filename);
     fs.writeFileSync(filePath, fileContent, 'utf8');
@@ -514,9 +522,10 @@ ${cleanedContent}`;
   }
 }
 
-// 블로그 추출 및 분류 함수 (Puppeteer 기반)
+// 블로그 추출 및 분류 함수 (개선된 full-text 분석)
 async function extractAndClassifyBlog(url) {
   const AutoClassificationManager = require('./lib/autoClassificationManager');
+  const TextAnalyzer = require('./lib/textAnalyzer');
   const fs = require('fs');
   const path = require('path');
   
@@ -528,7 +537,7 @@ async function extractAndClassifyBlog(url) {
   
   // 추출 방법 체인 설정
   const extractionChain = url.includes('blog.naver.com') ? [
-    { name: 'Puppeteer', method: () => extractWithPuppeteer(url) },
+    { name: 'AdvancedParser', method: () => extractWithAdvancedParser(url) },
     { name: 'Mobile', method: () => extractWithFetch(url.replace('blog.naver.com', 'm.blog.naver.com')) },
     { name: 'Fetch Fallback', method: () => extractWithFetch(url) }
   ] : [
@@ -561,10 +570,15 @@ async function extractAndClassifyBlog(url) {
     blogContent = cleanBlogContent(blogContent);
     console.log(`✅ 블로그 내용 추출 완료 (${blogContent.length}자)`);
     
-    // iframe에서 추출한 제목을 그대로 사용 (이미 cleanTitle로 정리됨)
-    // 블로그 내용은 본문으로만 사용
-    const lines = blogContent.split('\n').filter(line => line.trim().length > 0);
-    let bodyContent = lines.join('\n').trim();
+    // TextAnalyzer를 사용한 의미 단위 분석
+    const textAnalyzer = new TextAnalyzer();
+    const analysis = textAnalyzer.extractStructuredSections(blogContent);
+    
+    console.log(`📊 텍스트 분석 결과:`);
+    console.log(`   전체 문단 수: ${analysis.totalParagraphs}개`);
+    console.log(`   전체 길이: ${analysis.totalLength}자`);
+    console.log(`   첫 문단 길이: ${analysis.firstParagraph ? analysis.firstParagraph.length : 0}자`);
+    console.log(`   마지막 문단 길이: ${analysis.closingParagraph ? analysis.closingParagraph.length : 0}자`);
     
     console.log(`📝 제목 추출 완료: "${cleanTitle}" (${cleanTitle.length}자)`);
     
@@ -572,7 +586,7 @@ async function extractAndClassifyBlog(url) {
     let newFiles = 0;
     const processedCategories = [];
     
-    // 분류 작업 정의
+    // 개선된 분류 작업 정의 (의미 단위 기반)
     const classificationTasks = [
       {
         name: 'title',
@@ -582,36 +596,59 @@ async function extractAndClassifyBlog(url) {
       },
       {
         name: 'firstparagraph', 
-        condition: () => bodyContent.length > 50,
-        content: () => bodyContent.substring(0, Math.min(1000, bodyContent.length)),
+        condition: () => analysis.firstParagraph && analysis.firstParagraph.length > 30,
+        content: () => {
+          // 확장된 첫 문단 추출 (최소 300자, 최대 1200자)
+          const extended = textAnalyzer.getExtendedFirstParagraph(blogContent, 300);
+          console.log(`📄 확장된 첫 문단 길이: ${extended ? extended.length : 0}자`);
+          return extended || analysis.firstParagraph;
+        },
         prefix: 'fp_'
       },
       {
         name: 'closing',
-        condition: () => bodyContent.length > 100,
-        content: () => bodyContent.substring(Math.max(0, bodyContent.length - 800)),
+        condition: () => analysis.closingParagraph && analysis.closingParagraph.length > 20,
+        content: () => {
+          // 확장된 마지막 문단 추출 (최소 200자, 최대 1000자)
+          const extended = textAnalyzer.getExtendedClosingParagraph(blogContent, 200);
+          console.log(`📄 확장된 마지막 문단 길이: ${extended ? extended.length : 0}자`);
+          return extended || analysis.closingParagraph;
+        },
         prefix: 'cl_'
       }
     ];
     
     // 분류 작업 실행
     for (const task of classificationTasks) {
+      console.log(`🔍 ${task.name} 조건 검사: ${task.condition()}`);
       if (task.condition()) {
         try {
           console.log(`🎯 ${task.name} 분류 시작...`);
           const content = task.content();
+          console.log(`📝 ${task.name} 콘텐츠 길이: ${content.length}자`);
+          console.log(`📄 ${task.name} 콘텐츠 미리보기: ${content.substring(0, 100)}...`);
+          
           const result = await classifier.classifyContent(task.name, content);
+          console.log(`📊 ${task.name} 분류 결과 길이: ${result ? result.length : 'null'}자`);
           
           if (result) {
             const success = await saveClassificationFile(task.name, task.prefix, result, content);
             if (success) {
               newFiles++;
               processedCategories.push(task.name);
+              console.log(`✅ ${task.name} 분류 및 저장 완료`);
+            } else {
+              console.log(`❌ ${task.name} 저장 실패`);
             }
+          } else {
+            console.log(`❌ ${task.name} 분류 결과가 null`);
           }
         } catch (error) {
           console.error(`❌ ${task.name} 분류 오류:`, error.message);
+          console.error(error.stack);
         }
+      } else {
+        console.log(`⏭️ ${task.name} 조건 불충족으로 스킵`);
       }
     }
     
@@ -628,208 +665,34 @@ async function extractAndClassifyBlog(url) {
 }
 
 // 네이버 블로그 직접 추출 함수
-// Puppeteer를 사용한 네이버 블로그 추출 (Python selenium 코드와 동일한 방식)
-async function extractWithPuppeteer(url) {
-  let browser = null;
-  
+// AdvancedBlogParser를 사용한 BeautifulSoup 방식 (Python 코드 기반)
+async function extractWithAdvancedParser(url) {
   try {
-    console.log('🤖 Puppeteer 추출 시도 (Python 방식)...');
+    console.log('🚀 AdvancedBlogParser 추출 시도 (BeautifulSoup 방식)...');
     
-    const puppeteer = require('puppeteer');
-    browser = await puppeteer.launch({ 
-      headless: true,
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-extensions',
-        '--no-first-run',
-        '--disable-default-apps'
-      ]
-    });
+    const AdvancedBlogParser = require('./lib/advancedBlogParser');
+    const parser = new AdvancedBlogParser();
     
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1280, height: 720 });
+    const result = await parser.extractNaverBlogContent(url);
     
-    // 1. Navigate to the Naver blog URL
-    console.log('📍 네이버 블로그 URL로 이동 중...');
-    await page.goto(url, { 
-      waitUntil: 'domcontentloaded', 
-      timeout: 20000 
-    });
-    
-    // 2. Wait for page to load (5 seconds like in Python code)
-    console.log('⏳ 페이지 로딩 대기 (5초)...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // 3. Find iframe with id="mainFrame" specifically
-    console.log('🔍 mainFrame iframe 검색 중...');
-    const mainFrameElement = await page.$('#mainFrame');
-    
-    if (!mainFrameElement) {
-      throw new Error('mainFrame iframe을 찾을 수 없습니다');
-    }
-    
-    console.log('✅ mainFrame iframe 발견');
-    
-    // 4. Switch to that iframe
-    const mainFrame = await mainFrameElement.contentFrame();
-    if (!mainFrame) {
-      throw new Error('mainFrame iframe으로 전환할 수 없습니다');
-    }
-    
-    console.log('🔄 mainFrame iframe으로 전환 완료');
-    
-    // 5. Extract content using "div.se-main-container" selector (same as Python)
-    console.log('📄 div.se-main-container에서 콘텐츠 추출 중...');
-    const content = await mainFrame.evaluate(() => {
-      const container = document.querySelector('div.se-main-container');
-      if (!container) {
-        return null;
-      }
+    if (result.content && result.content.length > 50) {
+      console.log(`✅ AdvancedBlogParser 추출 성공 (${result.content.length}자)`);
+      console.log(`📊 추출 방식: ${result.method}, 요소: ${result.elementsFound}개`);
       
-      // Get raw HTML content
-      return container.innerHTML;
-    });
-    
-    if (!content) {
-      throw new Error('div.se-main-container를 찾을 수 없습니다');
-    }
-    
-    // 6. Clean the HTML tags and text like in the Python code
-    console.log('🧹 HTML 태그 정리 및 텍스트 클리닝 중...');
-    
-    // Remove script and style tags
-    let cleanContent = content
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '');
-    
-    // Convert HTML to text (similar to Python's approach)
-    cleanContent = cleanContent
-      .replace(/<br\s*\/?>/gi, '\n')           // Convert <br> to newlines
-      .replace(/<\/p>/gi, '\n\n')              // Convert </p> to double newlines
-      .replace(/<\/div>/gi, '\n')              // Convert </div> to newlines
-      .replace(/<\/h[1-6]>/gi, '\n\n')         // Convert heading endings to double newlines
-      .replace(/<[^>]*>/g, ' ')                // Remove all remaining HTML tags
-      .replace(/&nbsp;/g, ' ')                 // Convert &nbsp; to space
-      .replace(/&amp;/g, '&')                  // Convert HTML entities
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#x27;/g, "'")
-      .replace(/&[a-zA-Z0-9#]+;/g, ' ')        // Remove other HTML entities
-      .replace(/\s*\n\s*/g, '\n')              // Clean up whitespace around newlines
-      .replace(/\n{3,}/g, '\n\n')              // Replace multiple newlines with double newlines
-      .replace(/[ \t]+/g, ' ')                 // Replace multiple spaces with single space
-      .trim();                                 // Remove leading/trailing whitespace
-    
-    // iframe 전환 후 페이지 소스에서 제목 추출 (Python 코드 방식)
-    // iframe 전환 후 전체 HTML 소스 가져오기
-    const iframeSource = await mainFrame.content();
-    let title = '';
-    
-    // 1. HTML title 태그에서 추출
-    const titleMatch = iframeSource.match(/<title[^>]*>([^<]*)<\/title>/i);
-    if (titleMatch) {
-      const htmlTitle = titleMatch[1].trim();
-      
-      // 네이버 블로그 제목 형식 처리
-      if (htmlTitle.includes(' : ')) {
-        title = htmlTitle.split(' : ')[0].trim();
-      } else if (htmlTitle.includes(' | ')) {
-        title = htmlTitle.split(' | ')[0].trim();
-      } else {
-        title = htmlTitle;
-      }
-    }
-    
-    // 2. iframe 내 DOM에서 제목 요소 찾기 (fallback)
-    if (!title || title.length < 10) {
-      console.log('🔄 DOM에서 제목 요소 찾기...');
-      title = await mainFrame.evaluate(() => {
-        // 제목 요소들 우선순위 순으로 검색
-        const titleSelectors = [
-          '.se-title-text',
-          '.se-text-paragraph:first-of-type',
-          'h1',
-          '.se-text-paragraph[data-se-type="text"]',
-          '.se-module-text .se-text-paragraph'
-        ];
-        
-        for (const selector of titleSelectors) {
-          const element = document.querySelector(selector);
-          if (element && element.textContent.trim().length > 10) {
-            console.log(`✅ DOM에서 제목 발견 (${selector}): "${element.textContent.trim()}"`);
-            return element.textContent.trim();
-          }
-        }
-        
-        return '';
-      });
-    }
-    
-    
-    console.log(`🔍 추출된 원본 제목: "${title}" (${title.length}자)`);
-    
-    let cleanTitle = title.trim();
-    console.log(`🔍 정리 전 제목: "${cleanTitle}" (${cleanTitle.length}자)`);
-    
-    if (cleanTitle.includes(' : ')) {
-      const before = cleanTitle;
-      cleanTitle = cleanTitle.split(' : ')[0].trim();
-      console.log(`🔧 ' : ' 분리: "${before}" → "${cleanTitle}"`);
-    }
-    if (cleanTitle.includes(' | ')) {
-      const before = cleanTitle;
-      cleanTitle = cleanTitle.split(' | ')[0].trim();
-      console.log(`🔧 ' | ' 분리: "${before}" → "${cleanTitle}"`);
-    }
-    if (cleanTitle.includes(' - ')) {
-      const before = cleanTitle;
-      cleanTitle = cleanTitle.split(' - ')[0].trim();
-      console.log(`🔧 ' - ' 분리: "${before}" → "${cleanTitle}"`);
-    }
-    
-    console.log(`🔍 정리 후 제목: "${cleanTitle}" (${cleanTitle.length}자)`);
-    
-    // 7. Return the cleaned content
-    let result = (cleanTitle ? cleanTitle + '\n\n' : '') + cleanContent;
-    
-    // 추가 정리 (기본적인 정크 제거)
-    result = result
-      .replace(/궁금할\s?땐\s?네이버\s?톡톡[^\n]*/gi, '')
-      .replace(/^(공감|댓글|조회)\s?\d+$/gm, '')
-      .replace(/^(좋아요|구독하기|이웃추가)$/gm, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    
-    if (result.length > 50) {
-      console.log(`✅ Puppeteer 추출 성공 (${result.length}자)`);
       return {
-        title: cleanTitle,
-        content: result
+        title: result.title,
+        content: result.content
       };
     } else {
       throw new Error('추출된 컨텐츠가 충분하지 않습니다');
     }
     
-  } catch (puppeteerError) {
-    console.error(`❌ Puppeteer 오류:`, puppeteerError.message);
+  } catch (advancedParserError) {
+    console.error(`❌ AdvancedBlogParser 오류:`, advancedParserError.message);
     
     // Fallback to fetch method
-    console.log('🔄 Puppeteer 실패로 인한 Fetch 대체 시도');
+    console.log('🔄 AdvancedBlogParser 실패로 인한 Fetch 대체 시도');
     return await extractWithFetch(url);
-    
-  } finally {
-    // 브라우저 정리
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('⚠️ 브라우저 종료 오류:', closeError.message);
-      }
-    }
   }
 }
 

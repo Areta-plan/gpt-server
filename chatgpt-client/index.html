@@ -276,10 +276,25 @@
                         <select id="modelSelect" class="form-control">
                             <option value="">테스트할 모델 선택...</option>
                         </select>
+                        <select id="categorySelect" class="form-control" onchange="updateTestPlaceholder()">
+                            <option value="title">Title (제목)</option>
+                            <option value="firstparagraph">FirstParagraph (첫 문단)</option>
+                            <option value="closing">Closing (클로징)</option>
+                            <option value="story">Story (스토리)</option>
+                            <option value="usp">USP (강점)</option>
+                        </select>
                         <textarea id="testInput" rows="4" placeholder="테스트 입력을 작성하세요...
-예: [Keyword]: 부산 심리상담
+
+Title 예시:
+[Keyword]: 부산 심리상담
 [Intent]: 비용이 걱정되는 사람
-[Tags]: [Reversal], [Cost-related]"></textarea>
+[Tags]: [Reversal], [Cost-related]
+
+FirstParagraph 예시:
+안녕하세요. 15년간 아동 발달의 한 길만 걸어온...
+
+Closing 예시:
+하늘땅만큼 소중한 우리 아이의 센터는 정말..."></textarea>
                         <button onclick="testModel()" class="btn-secondary" id="testModelBtn" disabled>
                             🧪 모델 테스트
                         </button>

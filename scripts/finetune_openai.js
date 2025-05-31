@@ -195,23 +195,35 @@ class OpenAIFineTuner {
   }
 
   // 파인튜닝된 모델로 테스트
-  async testFineTunedModel(modelId, testInput) {
+  async testFineTunedModel(modelId, testInput, category = 'title') {
     try {
-      console.log('🧪 파인튜닝된 모델 테스트...');
+      console.log(`🧪 파인튜닝된 모델 테스트 (${category})...`);
+      
+      // 카테고리별 시스템 프롬프트 정의
+      const CLASSIFICATION_PROMPTS = require('../lib/classificationPrompts');
+      const systemPrompts = {
+        title: "당신은 블로그 제목 생성 전문가입니다. 주어진 키워드와 의도를 분석하여 클릭률이 높은 매력적인 제목을 생성하세요.\n\n규칙:\n1. 호기심을 자극하는 표현 사용\n2. 구체적이고 실용적인 정보 제시\n3. 감정적 어필 요소 포함\n4. 20-40자 내외 길이\n5. 검색 키워드 자연스럽게 포함",
+        firstparagraph: "당신은 블로그 첫 문단 분류 전문가입니다. 주어진 첫 문단을 분석하여 REMA 법칙에 따라 분류하세요.",
+        closing: "당신은 블로그 클로징 문단 분류 전문가입니다. 주어진 클로징 문단의 정서적 특성과 독자에게 의도된 효과를 분석하여 태그를 분류하세요.",
+        story: "당신은 블로그 스토리텔링 분석 전문가입니다. 주어진 내용이 스토리텔링 유형에 해당하는지 분석하고 6개 태그로 분류하세요.",
+        usp: "당신은 세일즈 심리와 설득 카피라이팅에 능한 마케팅 분석가입니다. 블로그 본문에서 숨겨진 설득 구조를 추론하여 자사의 핵심 강점(USP)을 도출하고 태깅하세요."
+      };
+      
+      const systemPrompt = systemPrompts[category] || systemPrompts.title;
       
       const response = await this.client.chat.completions.create({
         model: modelId,
         messages: [
           {
             role: "system",
-            content: "당신은 블로그 제목 생성 전문가입니다. 주어진 키워드와 의도를 분석하여 클릭률이 높은 매력적인 제목을 생성하세요."
+            content: systemPrompt
           },
           {
             role: "user",
             content: testInput
           }
         ],
-        max_tokens: 100,
+        max_tokens: category === 'title' ? 100 : 500,
         temperature: 0.7
       });
 

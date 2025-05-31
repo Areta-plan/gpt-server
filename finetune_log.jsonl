@@ -6,3 +6,5 @@
 {"type":"finetune_success","job_id":"ftjob-4Vf9KKfxBfY4bilRp3f3vUJT","model_id":"ft:gpt-4o-mini-2024-07-18:personal:blog-classification:BdGphOfx","timestamp":"2025-05-31T14:40:12.888Z"}
 {"type":"finetune_success","job_id":"ftjob-4Vf9KKfxBfY4bilRp3f3vUJT","model_id":"ft:gpt-4o-mini-2024-07-18:personal:blog-classification:BdGphOfx","timestamp":"2025-05-31T14:47:58.399Z"}
 {"type":"finetune_success","job_id":"ftjob-N5JBM51pbJYG8r4OxiiC2oH8","model_id":"ft:gpt-4o-mini-2024-07-18:personal:blog-classification:BdFTMzJn","timestamp":"2025-05-31T14:52:55.319Z"}
+{"type":"file_upload","file_id":"file-XrQvJDpfAs7THfZ17AMhpK","filename":"classification_finetune.jsonl","timestamp":"2025-05-31T18:13:47.395Z"}
+{"type":"finetune_start","job_id":"ftjob-bQET7WkHVYSI8c4B4raXXeZT","file_id":"file-XrQvJDpfAs7THfZ17AMhpK","model_name":"blog-classification","timestamp":"2025-05-31T18:13:48.393Z","status":"validating_files"}

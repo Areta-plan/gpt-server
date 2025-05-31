@@ -11,7 +11,7 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 
-// const { initializeVectorStore, chunks } = require('./vectorStore'); // 임시 주석 처리
+const { initializeVectorStore, chunks } = require('./vectorStore');
 const askRouter  = require('./routes/ask');
 const blogRouter = require('./routes/blog');
 const chatRouter = require('./routes/chat');

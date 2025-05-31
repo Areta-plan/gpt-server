@@ -11,7 +11,7 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 
-const { initializeVectorStore, chunks } = require('./vectorStore');
+// const { initializeVectorStore, chunks } = require('./vectorStore'); // 임시 주석 처리
 const askRouter  = require('./routes/ask');
 const blogRouter = require('./routes/blog');
 const chatRouter = require('./routes/chat');
@@ -47,6 +47,7 @@ app.use('/ask', askRouter);
 app.use('/blog', blogRouter);
 app.use('/chat', chatRouter);
 app.use('/classification', require('./routes/classification'));
+app.use('/api/finetune', require('./routes/finetune'));
 
 // RLHF 피드백 엔드포인트
 const rlhfManager = require('./lib/rlhfManager');
@@ -416,25 +417,13 @@ function isNaverBlogJunk(line) {
     /smartstore\.naver\.com/,
     /^m\.blog\.naver\.com/,
     /^naver\.me/,
-    /^안녕하세요\.\s*특허[·•]상표[·•]디자인\s*출원.*이상.*우림특허법률사무소입니다/,
-    /^등록되길\.\.\.$/,
-    /^\d+\.\s*특허등록\s*가능성\s*무료\s*분석$/,
-    /^\d+\.\s*맞춤형\s*출원$/,
-    /^\d+\.\s*정찰제\s*수임료$/,
-    // fp_007.txt assistant 섹션에서 발견된 패턴들 추가
-    /^[가-힣]+ [가-힣]+치료$/, // "부산 감각통합치료" 같은 지역+서비스 조합
-    /^[가-힣]+구 [가-힣]+센터/, // "사하구 발달센터" 같은 구+센터 조합  
+    // 범용적 패턴만 유지
     /\[후기\]$/, // 블로그 포스트 제목 끝의 [후기]
     /\[사연\]$/, // 블로그 포스트 제목 끝의 [사연]
     /\[노하우\]$/, // 블로그 포스트 제목 끝의 [노하우]
-    /^어머님들이 남겨주신 소중한 말씀$/, // 후기 섹션 제목
-    /바뀐 사연/, // 후기 관련 텍스트
-    /수다쟁이가 된 사연/, // 후기 관련 텍스트
-    /생긴 일/, // 후기 관련 텍스트
-    /무발화.*사회성 부족한 아이/, // 특정 후기 제목 패턴
-    /말 서툴던 아이/, // 특정 후기 제목 패턴
-    /엄마.*만 하던 아이/, // 특정 후기 제목 패턴
-    /말을 못하던 아이/, // 특정 후기 제목 패턴
+    /\[리뷰\]$/, // 블로그 포스트 제목 끝의 [리뷰]
+    /\[추천\]$/, // 블로그 포스트 제목 끝의 [추천]
+    /\[정보\]$/, // 블로그 포스트 제목 끝의 [정보]
   ];
   
   return junkPatterns.some(pattern => pattern.test(line));
@@ -488,25 +477,21 @@ async function saveClassificationFile(category, prefix, classification, content)
         
         // 링크 텍스트 껍데기 제거
         .replace(/함께\s*읽으면\s*좋은\s*글[\s\S]*$/g, '')
-        .replace(/센터\s*치료사\s*선생님들을\s*소개합니다!?/g, '')
-        .replace(/좋은\s*선생님들?\s*있는\s*곳\s*알려주세요\.?.*$/gm, '')
-        .replace(/놀란\s*가슴을\s*부여잡고\s*오신\s*어머님들께\s*드리는\s*편지/g, '')
-        .replace(/해운대\s*감통치료\s*비용.*?좋을까요\?/g, '')
-        .replace(/감통치료를\s*알아보는데.*?어떤\s*차이가\s*있나요\?.*?/g, '')
-        .replace(/\d+년?\s*차\s*치?.*?졸업?.*?석사.*?/g, '')
-        .replace(/대표\s*이\s*지\s*영.*?석사.*?졸?.*?/g, '')
         
-        // 센터 정보 제거
-        .replace(/이지언어행동발달센터.*?부산가야점?/g, '')
-        .replace(/이지언어행동발달센터\s*이지영\s*원장이었습니다\.?/g, '')
+        // 네이버 지도 관련 텍스트 제거
+        .replace(/\d+m\s*©\s*NAVER\s*Corp\.[\s\S]*?국가\]/g, '') // 50m © NAVER Corp. 더보기 /OpenStreetMap 지도 데이터 x © NAVER Corp. /OpenStreetMap 지도 컨트롤러 범례 부동산 거리 읍,면,동 시,군,구 시,도 국가]
+        .replace(/©\s*NAVER\s*Corp\.[\s\S]*?OpenStreetMap[\s\S]*?지도[\s\S]*?/g, '') // © NAVER Corp. /OpenStreetMap 지도 관련
+        .replace(/지도\s*데이터[\s\S]*?지도\s*컨트롤러[\s\S]*?범례[\s\S]*?부동산[\s\S]*?거리[\s\S]*?읍,면,동[\s\S]*?시,군,구[\s\S]*?시,도[\s\S]*?국가/g, '') // 지도 데이터 컨트롤러 범례 부동산 거리 읍,면,동 시,군,구 시,도 국가
+        .replace(/더보기\s*\/OpenStreetMap/g, '') // 더보기 /OpenStreetMap
+        .replace(/\d+m\s*©/g, '') // 50m © 패턴
         
-        // 안내 섹션 제거
-        .replace(/안내[\s\S]*?예약제로\s*운영.*?진심으로/g, '')
-        .replace(/모두\s*예약제로\s*운영.*?진심으로/g, '')
-        .replace(/한\s*명\s*한\s*명과\s*진심으로/g, '')
-        .replace(/톡톡이나\s*번호를\s*통해[\s\S]*?말씀드리겠습니다\.?/g, '')
+        // 범용적 연락처/예약 제거
+        .replace(/예약제로\s*운영[\s\S]*?(전화|문의|예약)[\s\S]*?말씀드리겠습니다\.?/g, '')
+        .replace(/톡톡이나\s*전화[\s\S]*?문의[\s\S]*?주세요\.?/g, '')
+        .replace(/예약.*?문의.*?전화.*?카카오톡톡.*?부탁드려요\.?/g, '')
         
-        // 기타 정리
+        // 기타 정리  
+        .replace(/[\s\n]*\[\s*\]$/g, '') // 끝에 남은 빈 대괄호 제거
         .replace(/\n\s*\n\s*\n+/g, '\n\n')
         .trim();
       

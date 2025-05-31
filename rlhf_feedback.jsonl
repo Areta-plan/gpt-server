@@ -34,3 +34,5 @@
 {"timestamp":"2025-05-27T15:19:57.493Z","processedAt":"2025-05-27T15:19:57.500Z"}
 {"type":"individual_evaluation","filename":"ti_015.txt","category":"title","classificationScore":4,"taggingScore":3,"improvement":"","timestamp":"2025-05-28T02:16:43.307Z","processedAt":"2025-05-28T02:16:43.360Z"}
 {"type":"individual_evaluation","filename":"fp_009.txt","category":"firstparagraph","classificationScore":4,"taggingScore":4,"improvement":"","timestamp":"2025-05-28T02:19:30.633Z","processedAt":"2025-05-28T02:19:30.636Z"}
+{"type":"individual_evaluation","filename":"ti_015.txt","category":"title","classificationScore":5,"taggingScore":5,"improvement":"","timestamp":"2025-05-29T05:33:14.319Z","processedAt":"2025-05-29T05:33:14.324Z"}
+{"type":"individual_evaluation","filename":"ti_015.txt","category":"title","classificationScore":5,"taggingScore":4,"improvement":"","timestamp":"2025-05-29T05:34:05.356Z","processedAt":"2025-05-29T05:34:05.360Z"}

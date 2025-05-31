@@ -15,6 +15,7 @@
             <button class="tab-button active" onclick="showTab('chat')">💬 일반 채팅</button>
             <button class="tab-button" onclick="showTab('blog')">📝 블로그 생성</button>
             <button class="tab-button" onclick="showTab('classification')">🏷️ 자동 분류</button>
+            <button class="tab-button" onclick="showTab('finetune')">🤖 파인튜닝</button>
         </div>
 
         <!-- 일반 채팅 탭 -->
@@ -211,6 +212,88 @@
                     <button onclick="submitAllEvaluations()" class="btn-submit-all" id="submitAllBtn" disabled>
                         🚀 모든 평가 완료 후 RLHF 제출
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 파인튜닝 탭 -->
+        <div id="finetune" class="tab-content">
+            <div class="finetune-container">
+                <div class="finetune-header">
+                    <h2>🤖 OpenAI 파인튜닝 관리</h2>
+                    <p>분류된 데이터를 기반으로 더 정확한 AI 모델을 만들어보세요.</p>
+                </div>
+
+                <!-- 데이터셋 상태 -->
+                <div class="finetune-section">
+                    <h3>📊 데이터셋 상태</h3>
+                    <div class="dataset-stats" id="datasetStats">
+                        <div class="stat-item">
+                            <span class="stat-label">훈련 예시:</span>
+                            <span class="stat-value" id="trainingExamples">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">승인된 데이터:</span>
+                            <span class="stat-value" id="approvedData">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">RLHF 고품질:</span>
+                            <span class="stat-value" id="rlhfData">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">총 샘플:</span>
+                            <span class="stat-value" id="totalSamples">-</span>
+                        </div>
+                    </div>
+                    <button onclick="loadDatasetStats()" class="btn-secondary">📈 데이터셋 분석</button>
+                </div>
+
+                <!-- 파인튜닝 실행 -->
+                <div class="finetune-section">
+                    <h3>🚀 파인튜닝 실행</h3>
+                    <div class="finetune-controls">
+                        <button onclick="startFineTuning()" class="btn-primary" id="startFineTuningBtn">
+                            🏃‍♂️ 파인튜닝 시작
+                        </button>
+                        <button onclick="loadFineTuningJobs()" class="btn-secondary">
+                            📋 작업 목록 새로고침
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 파인튜닝 작업 목록 -->
+                <div class="finetune-section">
+                    <h3>📋 파인튜닝 작업 현황</h3>
+                    <div class="finetune-jobs" id="fineTuningJobs">
+                        <div class="loading">작업 목록을 불러오는 중...</div>
+                    </div>
+                </div>
+
+                <!-- 모델 테스트 -->
+                <div class="finetune-section">
+                    <h3>🧪 모델 테스트</h3>
+                    <div class="model-test">
+                        <select id="modelSelect" class="form-control">
+                            <option value="">테스트할 모델 선택...</option>
+                        </select>
+                        <textarea id="testInput" rows="4" placeholder="테스트 입력을 작성하세요...
+예: [Keyword]: 부산 심리상담
+[Intent]: 비용이 걱정되는 사람
+[Tags]: [Reversal], [Cost-related]"></textarea>
+                        <button onclick="testModel()" class="btn-secondary" id="testModelBtn" disabled>
+                            🧪 모델 테스트
+                        </button>
+                        <div id="testResult" class="test-result"></div>
+                    </div>
+                </div>
+
+                <!-- 실시간 로그 -->
+                <div class="finetune-section">
+                    <h3>📜 실시간 로그</h3>
+                    <div class="finetune-logs" id="fineTuneLogs">
+                        <div class="log-entry">시스템 준비 완료</div>
+                    </div>
+                    <button onclick="clearLogs()" class="btn-reset">🗑️ 로그 지우기</button>
                 </div>
             </div>
         </div>

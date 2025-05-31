@@ -260,6 +260,14 @@ function showTab(tabName) {
     if (tabName === 'classification') {
         loadUnratedFiles();
     }
+    
+    // 파인튜닝 탭 선택 시 초기화
+    if (tabName === 'finetune') {
+        initializeFineTuningTab();
+    } else {
+        // 다른 탭으로 전환 시 폴링 중단
+        stopJobPolling();
+    }
 }
 
 // 1. 일반 채팅
@@ -1499,4 +1507,435 @@ document.addEventListener('keydown', function(e) {
                 break;
         }
     }
+});
+
+// =============================================================================
+// 파인튜닝 탭 관련 함수들
+// =============================================================================
+
+let fineTuningPollingInterval = null;
+let currentJobs = [];
+
+// 파인튜닝 탭 초기화
+function initializeFineTuningTab() {
+    console.log('🤖 파인튜닝 탭 초기화');
+    
+    // 초기 데이터 로드
+    loadDatasetStats();
+    loadFineTuningJobs();
+    loadAvailableModels();
+    
+    // 폴링 시작 (30초마다 작업 상태 업데이트)
+    startJobPolling();
+}
+
+// 데이터셋 통계 로드
+async function loadDatasetStats() {
+    try {
+        console.log('📊 데이터셋 통계 로드 중...');
+        
+        const response = await fetch('/api/finetune/dataset-stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.data;
+            
+            document.getElementById('trainingExamples').textContent = stats.trainingExamples;
+            document.getElementById('approvedData').textContent = stats.approvedData;
+            document.getElementById('rlhfData').textContent = stats.rlhfData;
+            document.getElementById('totalSamples').textContent = stats.totalSamples;
+            
+            addFineTuneLog('데이터셋 통계 로드 완료', 'success');
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 데이터셋 통계 로드 실패:', error);
+        addFineTuneLog(`데이터셋 통계 로드 실패: ${error.message}`, 'error');
+    }
+}
+
+// 파인튜닝 시작
+async function startFineTuning() {
+    const startBtn = document.getElementById('startFineTuningBtn');
+    const originalText = startBtn.textContent;
+    
+    try {
+        startBtn.disabled = true;
+        startBtn.textContent = '🔄 파인튜닝 시작 중...';
+        startBtn.classList.add('loading-pulse');
+        
+        addFineTuneLog('파인튜닝 작업 시작 중...', 'info');
+        
+        const response = await fetch('/api/finetune/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const jobData = result.data;
+            addFineTuneLog(`파인튜닝 작업 시작됨: ${jobData.jobId}`, 'success');
+            addFineTuneLog(`상태 확인: node scripts/finetune_openai.js status ${jobData.jobId}`, 'info');
+            
+            // 작업 목록 새로고침
+            await loadFineTuningJobs();
+            
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 파인튜닝 시작 실패:', error);
+        addFineTuneLog(`파인튜닝 시작 실패: ${error.message}`, 'error');
+    } finally {
+        startBtn.disabled = false;
+        startBtn.textContent = originalText;
+        startBtn.classList.remove('loading-pulse');
+    }
+}
+
+// 파인튜닝 작업 목록 로드
+async function loadFineTuningJobs() {
+    try {
+        console.log('📋 파인튜닝 작업 목록 로드 중...');
+        
+        const response = await fetch('/api/finetune/jobs');
+        const result = await response.json();
+        
+        if (result.success) {
+            currentJobs = result.data;
+            renderFineTuningJobs(currentJobs);
+            
+            // 사용 가능한 모델 목록도 업데이트
+            await loadAvailableModels();
+            
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 작업 목록 로드 실패:', error);
+        const jobsContainer = document.getElementById('fineTuningJobs');
+        jobsContainer.innerHTML = `<div class="error">작업 목록 로드 실패: ${error.message}</div>`;
+    }
+}
+
+// 파인튜닝 작업 목록 렌더링
+function renderFineTuningJobs(jobs) {
+    const container = document.getElementById('fineTuningJobs');
+    
+    if (jobs.length === 0) {
+        container.innerHTML = '<div class="loading">아직 파인튜닝 작업이 없습니다.</div>';
+        return;
+    }
+    
+    const jobsHtml = jobs.map(job => {
+        const createdDate = new Date(job.created_at * 1000).toLocaleString();
+        const finishedDate = job.finished_at ? new Date(job.finished_at * 1000).toLocaleString() : '-';
+        
+        let statusClass = 'running';
+        if (job.status === 'succeeded') statusClass = 'succeeded';
+        else if (job.status === 'failed') statusClass = 'failed';
+        else if (job.status === 'validating_files') statusClass = 'validating_files';
+        
+        return `
+            <div class="job-item">
+                <div class="job-header">
+                    <span class="job-id">${job.id}</span>
+                    <span class="job-status ${statusClass}">${job.status}</span>
+                </div>
+                <div class="job-details">
+                    <div class="job-detail">
+                        <span class="job-detail-label">모델:</span>
+                        <span>${job.model || '훈련 중'}</span>
+                    </div>
+                    <div class="job-detail">
+                        <span class="job-detail-label">시작:</span>
+                        <span>${createdDate}</span>
+                    </div>
+                    <div class="job-detail">
+                        <span class="job-detail-label">완료:</span>
+                        <span>${finishedDate}</span>
+                    </div>
+                </div>
+                ${job.error ? `<div class="job-error">오류: ${job.error.message}</div>` : ''}
+                <div class="job-actions">
+                    <button class="btn-job-action" onclick="checkJobStatus('${job.id}')">
+                        📊 상태 확인
+                    </button>
+                    ${job.model ? `
+                        <button class="btn-job-action" onclick="testSpecificModel('${job.model}')">
+                            🧪 모델 테스트
+                        </button>
+                        <button class="btn-job-action" onclick="applyModel('${job.model}')">
+                            🔧 모델 적용
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = jobsHtml;
+}
+
+// 특정 작업 상태 확인
+async function checkJobStatus(jobId) {
+    try {
+        addFineTuneLog(`작업 ${jobId} 상태 확인 중...`, 'info');
+        
+        const response = await fetch(`/api/finetune/jobs/${jobId}/status`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const job = result.data;
+            addFineTuneLog(`작업 ${jobId}: ${job.status}`, 'info');
+            
+            if (job.status === 'succeeded' && job.model) {
+                addFineTuneLog(`✅ 훈련 완료! 모델: ${job.model}`, 'success');
+            } else if (job.status === 'failed') {
+                addFineTuneLog(`❌ 훈련 실패: ${job.error?.message || '알 수 없는 오류'}`, 'error');
+            }
+            
+            // 작업 목록 새로고침
+            await loadFineTuningJobs();
+            
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 작업 상태 확인 실패:', error);
+        addFineTuneLog(`작업 상태 확인 실패: ${error.message}`, 'error');
+    }
+}
+
+// 사용 가능한 모델 목록 로드
+async function loadAvailableModels() {
+    try {
+        const response = await fetch('/api/finetune/models');
+        const result = await response.json();
+        
+        if (result.success) {
+            const models = result.data;
+            const modelSelect = document.getElementById('modelSelect');
+            
+            // 기존 옵션 제거 (첫 번째 옵션 제외)
+            while (modelSelect.children.length > 1) {
+                modelSelect.removeChild(modelSelect.lastChild);
+            }
+            
+            // 새 모델 옵션 추가
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.name} (${new Date(model.created_at * 1000).toLocaleDateString()})`;
+                modelSelect.appendChild(option);
+            });
+            
+            // 테스트 버튼 활성화
+            document.getElementById('testModelBtn').disabled = models.length === 0;
+            
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 모델 목록 로드 실패:', error);
+        addFineTuneLog(`모델 목록 로드 실패: ${error.message}`, 'error');
+    }
+}
+
+// 모델 테스트
+async function testModel() {
+    const modelSelect = document.getElementById('modelSelect');
+    const testInput = document.getElementById('testInput');
+    const testResult = document.getElementById('testResult');
+    const testBtn = document.getElementById('testModelBtn');
+    
+    const modelId = modelSelect.value;
+    const input = testInput.value.trim();
+    
+    if (!modelId || !input) {
+        alert('모델과 테스트 입력을 모두 선택/입력해주세요.');
+        return;
+    }
+    
+    const originalText = testBtn.textContent;
+    
+    try {
+        testBtn.disabled = true;
+        testBtn.textContent = '🔄 테스트 중...';
+        testResult.className = 'test-result';
+        testResult.textContent = '테스트 진행 중...';
+        
+        addFineTuneLog(`모델 테스트 시작: ${modelId}`, 'info');
+        
+        const response = await fetch('/api/finetune/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                modelId: modelId,
+                testInput: input
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const testData = result.data;
+            testResult.className = 'test-result success';
+            testResult.innerHTML = `
+                <strong>입력:</strong><br>
+                ${testData.input}<br><br>
+                <strong>출력:</strong><br>
+                ${testData.output}
+            `;
+            
+            addFineTuneLog('모델 테스트 완료', 'success');
+            
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 모델 테스트 실패:', error);
+        testResult.className = 'test-result error';
+        testResult.textContent = `테스트 실패: ${error.message}`;
+        addFineTuneLog(`모델 테스트 실패: ${error.message}`, 'error');
+    } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = originalText;
+    }
+}
+
+// 특정 모델 테스트 (작업 목록에서 호출)
+function testSpecificModel(modelId) {
+    const modelSelect = document.getElementById('modelSelect');
+    modelSelect.value = modelId;
+    
+    // 기본 테스트 입력 설정
+    const testInput = document.getElementById('testInput');
+    if (!testInput.value.trim()) {
+        testInput.value = `[Keyword]: 부산 심리상담
+[Intent]: 비용이 걱정되는 사람
+[Tags]: [Reversal], [Cost-related]`;
+    }
+    
+    // 모델 테스트 섹션으로 스크롤
+    document.querySelector('.model-test').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 모델 적용
+async function applyModel(modelId) {
+    if (!confirm(`모델 ${modelId}를 환경변수에 적용하시겠습니까?\n서버를 재시작하면 새 모델이 적용됩니다.`)) {
+        return;
+    }
+    
+    try {
+        addFineTuneLog(`모델 적용 중: ${modelId}`, 'info');
+        
+        const response = await fetch('/api/finetune/apply-model', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                modelId: modelId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            addFineTuneLog(`✅ 모델 적용 완료: ${modelId}`, 'success');
+            addFineTuneLog('서버를 재시작하면 새 모델이 적용됩니다.', 'warning');
+            alert('모델이 성공적으로 적용되었습니다.\n서버를 재시작하면 새 모델이 적용됩니다.');
+        } else {
+            throw new Error(result.message);
+        }
+        
+    } catch (error) {
+        console.error('❌ 모델 적용 실패:', error);
+        addFineTuneLog(`모델 적용 실패: ${error.message}`, 'error');
+        alert(`모델 적용 실패: ${error.message}`);
+    }
+}
+
+// 파인튜닝 로그 추가
+function addFineTuneLog(message, type = 'info') {
+    const logsContainer = document.getElementById('fineTuneLogs');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry ${type}`;
+    logEntry.innerHTML = `
+        <span class="log-timestamp">[${timestamp}]</span>
+        ${message}
+    `;
+    
+    logsContainer.appendChild(logEntry);
+    logsContainer.scrollTop = logsContainer.scrollHeight;
+    
+    console.log(`[FineTune ${type.toUpperCase()}] ${message}`);
+}
+
+// 로그 지우기
+function clearLogs() {
+    const logsContainer = document.getElementById('fineTuneLogs');
+    logsContainer.innerHTML = '<div class="log-entry">로그가 지워졌습니다.</div>';
+}
+
+// 작업 상태 폴링 시작
+function startJobPolling() {
+    // 기존 폴링 중단
+    if (fineTuningPollingInterval) {
+        clearInterval(fineTuningPollingInterval);
+    }
+    
+    // 30초마다 작업 상태 확인
+    fineTuningPollingInterval = setInterval(async () => {
+        // 파인튜닝 탭이 활성화된 경우에만 폴링
+        const fineTuneTab = document.getElementById('finetune');
+        if (fineTuneTab && fineTuneTab.classList.contains('active')) {
+            await loadFineTuningJobs();
+        }
+    }, 30000);
+}
+
+// 폴링 중단
+function stopJobPolling() {
+    if (fineTuningPollingInterval) {
+        clearInterval(fineTuningPollingInterval);
+        fineTuningPollingInterval = null;
+    }
+}
+
+// 기존 showTab 함수에 파인튜닝 탭 로직 추가
+// (기존 showTab 함수를 수정해야 합니다)
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    // 기존 DOMContentLoaded 로직...
+    
+    // 모델 선택 변경 시 테스트 버튼 활성화
+    const modelSelect = document.getElementById('modelSelect');
+    if (modelSelect) {
+        modelSelect.addEventListener('change', function() {
+            const testBtn = document.getElementById('testModelBtn');
+            testBtn.disabled = !this.value;
+        });
+    }
+});
+
+// 페이지 언로드 시 폴링 정리
+window.addEventListener('beforeunload', function() {
+    stopJobPolling();
 });

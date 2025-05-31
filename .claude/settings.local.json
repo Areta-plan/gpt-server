@@ -34,8 +34,23 @@
       "Bash(gh repo view:*)",
       "Bash(./fresh_start.sh:*)",
       "Bash(git config:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(npm i:*)",
+      "Bash(sudo npm i -g @anthropic-ai/claude-code)",
+      "Bash(claude doctor)",
+      "Bash(claude --version)",
+      "Bash(npm view:*)",
+      "Bash(sudo npm update:*)",
+      "Bash(sudo npm uninstall:*)",
+      "Bash(sudo npm install -g @anthropic-ai/claude-code)",
+      "Bash(npm cache clean:*)",
+      "Bash(git restore:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }

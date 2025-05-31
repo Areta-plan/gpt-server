@@ -1,0 +1,2 @@
+{"type":"file_upload","file_id":"file-XTnbmHorGxaLx2jfBYYyt2","filename":"classification_finetune.jsonl","timestamp":"2025-05-31T12:11:35.630Z"}
+{"type":"finetune_start","job_id":"ftjob-N5JBM51pbJYG8r4OxiiC2oH8","file_id":"file-XTnbmHorGxaLx2jfBYYyt2","model_name":"blog-classification","timestamp":"2025-05-31T12:11:37.233Z","status":"validating_files"}

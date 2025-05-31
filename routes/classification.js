@@ -1,6 +1,6 @@
 const express = require('express');
 const ClassificationManager = require('../lib/classificationManager');
-const AnthropicClient = require('../lib/anthropicClient');
+const OpenAIClassificationClient = require('../lib/openaiClassificationClient');
 const CLASSIFICATION_PROMPTS = require('../lib/classificationPrompts');
 const RLHFManager = require('../lib/rlhfManager');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -8,7 +8,7 @@ const { successResponse, errorResponse, logError } = require('../lib/utils');
 
 const router = express.Router();
 const manager = new ClassificationManager();
-const anthropic = new AnthropicClient();
+const openaiClient = new OpenAIClassificationClient();
 
 // 텍스트 분류 처리 (RLHF 개선 적용)
 router.post('/', asyncHandler(async (req, res) => {
@@ -27,7 +27,7 @@ router.post('/', asyncHandler(async (req, res) => {
     for (const category of categories) {
       const prompt = CLASSIFICATION_PROMPTS[category];
       if (prompt) {
-        const result = await anthropic.classify(prompt, text, [], category);
+        const result = await openaiClient.classify(prompt, text, [], category);
         if (result && result.trim()) {
           results[category] = result;
         }
@@ -35,7 +35,7 @@ router.post('/', asyncHandler(async (req, res) => {
     }
 
     // 스토리 탐지 추가
-    const hasStory = await anthropic.detectStory(text);
+    const hasStory = await openaiClient.detectStory(text);
 
     res.json(successResponse(results, '분류가 완료되었습니다.'));
   } catch (error) {

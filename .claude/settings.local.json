@@ -48,7 +48,14 @@
       "Bash(git restore:*)",
       "Bash(sudo apt:*)",
       "Bash(sudo apt install:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(claude migrate-installer)",
+      "Bash(npm update:*)",
+      "Bash(npm outdated:*)",
+      "Bash(claude update)",
+      "Bash(npm ls:*)",
+      "Bash(npm audit:*)",
+      "Bash(sudo npm install:*)"
     ],
     "deny": []
   },
